@@ -24,7 +24,7 @@ export default function Dashboard() {
 
   if (loading) return <div className="text-center py-20 text-dark-500">{t.dashboard.loading}</div>;
 
-  const trendChartData = trend.length > 1 ? {
+  const trendChartData = Array.isArray(trend) && trend.length > 1 ? {
     labels: trend.map(d => d.date),
     datasets: [
       { label: t.severity.critical, data: trend.map(d => d.critical), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.3 },
@@ -121,7 +121,7 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead><tr className="text-dark-500 text-xs uppercase"><th className="px-6 py-3 text-left">{t.dashboard.name}</th><th className="px-6 py-3 text-left">{t.dashboard.date}</th><th className="px-6 py-3 text-left hidden sm:table-cell">{t.dashboard.files}</th><th className="px-6 py-3 text-left">{t.dashboard.findings}</th><th className="px-6 py-3 text-left">{t.dashboard.actions}</th></tr></thead>
               <tbody>
-                {recent.map((s) => (
+                {(recent || []).map((s) => (
                   <tr key={s.id} className="border-t border-dark-700 hover:bg-dark-700/50">
                     <td className="px-6 py-3 text-white font-medium">{s.target_name}</td>
                     <td className="px-6 py-3 text-dark-500">{new Date(s.scan_date).toLocaleDateString()}</td>

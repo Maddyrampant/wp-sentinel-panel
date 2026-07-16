@@ -40,14 +40,14 @@ export default function Compare() {
           <label className="text-sm text-dark-500 mb-2 block">{t.compare.scan1}</label>
           <select value={id1} onChange={(e) => setId1(e.target.value)} className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none">
             <option value="">{t.compare.selectScan}</option>
-            {items.map(s => <option key={s.id} value={s.id}>{s.target_name} - {new Date(s.scan_date).toLocaleDateString()} ({s.total_findings} {t.compare.findings})</option>)}
+            {(items || []).map(s => <option key={s.id} value={s.id}>{s.target_name} - {new Date(s.scan_date).toLocaleDateString()} ({s.total_findings} {t.compare.findings})</option>)}
           </select>
         </div>
         <div className="bg-dark-800 border border-dark-700 rounded-xl p-5">
           <label className="text-sm text-dark-500 mb-2 block">{t.compare.scan2}</label>
           <select value={id2} onChange={(e) => setId2(e.target.value)} className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none">
             <option value="">{t.compare.selectScan}</option>
-            {items.map(s => <option key={s.id} value={s.id}>{s.target_name} - {new Date(s.scan_date).toLocaleDateString()} ({s.total_findings} {t.compare.findings})</option>)}
+            {(items || []).map(s => <option key={s.id} value={s.id}>{s.target_name} - {new Date(s.scan_date).toLocaleDateString()} ({s.total_findings} {t.compare.findings})</option>)}
           </select>
         </div>
       </div>

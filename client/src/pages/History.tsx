@@ -44,7 +44,7 @@ export default function History() {
             </tr>
           </thead>
           <tbody>
-            {items.map((s) => (
+            {(items || []).map((s) => (
               <tr key={s.id} className="border-t border-dark-700 hover:bg-dark-700/50 transition-colors">
                 <td className="px-5 py-3">
                   <Link to={`/scan/${s.id}`} className="text-white font-medium hover:text-blue-400 transition-colors">{s.target_name}</Link>

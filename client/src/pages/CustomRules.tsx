@@ -57,7 +57,7 @@ export default function CustomRules() {
   }, [rules]);
 
   const filteredRules = useMemo(() => {
-    let result = rules;
+    let result = Array.isArray(rules) ? rules : [];
     if (catFilter !== 'all') result = result.filter(r => r.category === catFilter);
     if (search) {
       const q = search.toLowerCase();

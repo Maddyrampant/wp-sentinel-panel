@@ -171,7 +171,7 @@ export default function ThemeIntel() {
                 </tr>
               </thead>
               <tbody>
-                {history.map((h) => (
+                {(history || []).map((h) => (
                   <tr key={h.id} className="border-b border-dark-700/50 hover:bg-dark-700/30">
                     <td className="px-4 py-3 text-sm text-gray-300 max-w-[200px] truncate">{h.themes_path}</td>
                     <td className="px-4 py-3 text-sm text-gray-400">{h.themes_count}</td>
@@ -202,17 +202,17 @@ export default function ThemeIntel() {
         <div className="space-y-4">
           <div className="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center justify-between">
             <div className="text-sm text-gray-400">
-              {result.results.length} {t.themeIntel.themesScanned} — {t.themeIntel.scanComplete}
-              <span className="ml-2 text-dark-500">({(result.duration / 1000).toFixed(1)}s)</span>
+              {(result?.results || []).length} {t.themeIntel.themesScanned} — {t.themeIntel.scanComplete}
+               <span className="ml-2 text-dark-500">({(result.duration / 1000).toFixed(1)}s)</span>
             </div>
           </div>
 
-          {result.results.length === 0 ? (
+          {(result?.results || []).length === 0 ? (
             <div className="bg-dark-800 border border-dark-700 rounded-xl p-8 text-center text-dark-500">
               {t.themeIntel.noThemesFound}
             </div>
           ) : (
-            result.results.map((theme) => (
+            (result?.results || []).map((theme) => (
               <ThemeCard
                 key={theme.themeName}
                 theme={theme}

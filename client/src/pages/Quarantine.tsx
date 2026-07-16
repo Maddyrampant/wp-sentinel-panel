@@ -62,7 +62,7 @@ export default function Quarantine() {
               </tr>
             </thead>
             <tbody>
-              {records.map(r => (
+              {(records || []).map(r => (
                 <tr key={r.id} className="border-b border-dark-700/50 hover:bg-dark-700/30">
                   <td className="px-4 py-3 font-mono text-xs text-gray-300 max-w-[250px] truncate">{r.originalPath}</td>
                   <td className="px-4 py-3 font-mono text-xs text-dark-500">{r.sha256.slice(0, 16)}...</td>
