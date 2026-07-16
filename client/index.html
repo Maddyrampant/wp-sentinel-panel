@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WP-SENTINEL Panel</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+  <script>
+    // Apply saved language direction before React loads
+    (function() {
+      var lang = localStorage.getItem('wp-sentinel-lang');
+      if (lang === 'fa') {
+        document.documentElement.dir = 'rtl';
+        document.documentElement.lang = 'fa';
+      }
+    })();
+  </script>
+</head>
+<body class="bg-dark-900 text-gray-100 min-h-screen">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

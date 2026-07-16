@@ -1,0 +1,415 @@
+ruleset:
+  name: wp-sentinel-wordpress-compromise-rules
+  version: 1.0.0
+  target: wordpress
+  description: Rules for detecting hacked WordPress source code, webshells, backdoors, obfuscation, persistence, redirects, and credential leaks.
+
+rules:
+  # ===== BACKDOOR =====
+  - id: php-dangerous-eval
+    title: "Dangerous eval usage"
+    severity: critical
+    category: backdoor
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '\beval\s*\('
+    description: "Detects direct dynamic code execution using eval()."
+    recommendation: "Remove eval usage unless absolutely required and manually verify the source."
+    tags: [rce, code-execution, backdoor]
+
+  - id: php-assert-code-exec
+    title: "Possible code execution through assert"
+    severity: critical
+    category: backdoor
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '\bassert\s*\('
+    description: "assert() can execute strings as PHP code in older or unsafe configurations."
+    recommendation: "Replace assert-based dynamic logic and inspect surrounding code."
+    tags: [rce, code-execution, backdoor]
+
+  - id: php-system-command-exec
+    title: "System command execution"
+    severity: critical
+    category: backdoor
+    confidence: medium
+    file_types: [php]
+    patterns:
+      - '\b(shell_exec|exec|system|passthru|proc_open|popen)\s*\('
+    description: "Detects PHP functions that can execute operating system commands."
+    recommendation: "Verify whether command execution is legitimate. Block user-controlled input."
+    tags: [rce, system-command, backdoor]
+
+  - id: php-file-write-from-request
+    title: "File write using request-controlled input"
+    severity: critical
+    category: backdoor
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '(file_put_contents|fwrite|fputs)\s*\(.*\$_(GET|POST|REQUEST|COOKIE)'
+      - 'move_uploaded_file\s*\(.*\$_FILES'
+    description: "Allows remote users to write files to the server."
+    recommendation: "Verify upload validation, destination path, extension checks, and permissions."
+    tags: [file-write, rce, backdoor]
+
+  - id: php-dynamic-function-call-from-request
+    title: "Dynamic function call from request parameter"
+    severity: critical
+    category: backdoor
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '\$_(GET|POST|REQUEST|COOKIE)\s*\[[^\]]+\]\s*\('
+      - '\$\w+\s*=\s*\$_(GET|POST|REQUEST|COOKIE)\[[^\]]+\].{0,80}\$\w+\s*\('
+    description: "Allows attackers to choose which PHP function to execute."
+    recommendation: "Remove dynamic execution and inspect access logs for exploitation."
+    tags: [rce, dynamic-call, backdoor]
+
+  - id: php-self-modifying-code
+    title: "Self-modifying PHP code"
+    severity: high
+    category: persistence
+    confidence: medium
+    file_types: [php]
+    patterns:
+      - 'file_put_contents\s*\(\s*__FILE__'
+      - 'fopen\s*\(\s*__FILE__'
+    description: "PHP code modifying itself is highly suspicious."
+    recommendation: "Quarantine and compare with trusted source."
+    tags: [persistence, self-modify]
+
+  # ===== OBFUSCATION =====
+  - id: php-base64-eval-chain
+    title: "Base64 decode followed by code execution"
+    severity: critical
+    category: obfuscation
+    confidence: high
+    file_types: [php]
+    patterns:
+      - 'eval\s*\(\s*base64_decode\s*\('
+      - 'assert\s*\(\s*base64_decode\s*\('
+      - 'preg_replace\s*\(.*base64_decode\s*\('
+    description: "Common malware pattern using Base64 decoding before execution."
+    recommendation: "Decode safely in an isolated environment and remove malicious payload."
+    tags: [obfuscation, base64, rce]
+
+  - id: php-obfuscation-functions-chain
+    title: "Suspicious obfuscation function chain"
+    severity: high
+    category: obfuscation
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '(base64_decode|gzinflate|gzuncompress|str_rot13|rawurldecode|urldecode)\s*\(\s*(base64_decode|gzinflate|gzuncompress|str_rot13|rawurldecode|urldecode)\s*\('
+    description: "Multiple decoding or transformation functions chained together."
+    recommendation: "Review decoded output and verify whether it belongs to trusted code."
+    tags: [obfuscation, encoding-chain]
+
+  - id: php-long-base64-string
+    title: "Long Base64-like encoded payload"
+    severity: high
+    category: obfuscation
+    confidence: medium
+    file_types: [php, js, txt]
+    patterns:
+      - "[\"'][A-Za-z0-9+/]{300,}={0,2}[\"']"
+    description: "Long encoded strings are commonly used to hide malicious payloads."
+    recommendation: "Decode only in a safe analysis environment and inspect intent."
+    tags: [obfuscation, base64, encoded-payload]
+
+  - id: php-eval-base64-gzinflate
+    title: "Multi-layer obfuscation (eval+base64+gzinflate)"
+    severity: critical
+    category: obfuscation
+    confidence: high
+    file_types: [php]
+    patterns:
+      - 'eval\s*\(\s*gzinflate\s*\(\s*base64_decode\s*\('
+      - 'eval\s*\(\s*gzuncompress\s*\(\s*base64_decode\s*\('
+      - 'eval\s*\(\s*str_rot13\s*\(\s*gzinflate\s*\(\s*base64_decode\s*\('
+    description: "Multi-layer encoding chain commonly found in advanced malware."
+    recommendation: "Decode each layer in isolated environment. Treat as malicious."
+    tags: [obfuscation, multi-layer, rce]
+
+  # ===== WEBSHELL =====
+  - id: php-webshell-request-exec
+    title: "Webshell command execution from request input"
+    severity: critical
+    category: webshell
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '(shell_exec|exec|system|passthru|proc_open|popen)\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'
+    description: "Executes system commands directly from user-controlled request input."
+    recommendation: "Treat as malicious unless proven otherwise. Quarantine file immediately."
+    tags: [webshell, rce, critical]
+
+  - id: php-uploaded-webshell-name
+    title: "Suspicious webshell filename"
+    severity: high
+    category: webshell
+    confidence: medium
+    file_types: [php, phtml, php5, phar]
+    path_patterns:
+      - '(?i)(shell|wso|c99|r57|b374k|cmd|mailer|leaf|alfa|mini|up|uploader|backdoor)'
+    description: "Filename resembles common webshell or malicious uploader names."
+    recommendation: "Inspect file contents and verify creation time/owner."
+    tags: [webshell, filename, detection]
+
+  # ===== WORDPRESS-SPECIFIC =====
+  - id: wp-php-in-uploads
+    title: "PHP file inside uploads directory"
+    severity: critical
+    category: wordpress
+    confidence: high
+    file_types: [php, phtml, php5, phar]
+    path_patterns:
+      - 'wp-content/uploads/'
+    description: "PHP files should normally not exist inside the uploads directory."
+    recommendation: "Quarantine and block PHP execution in uploads using server config."
+    tags: [wordpress, uploads, suspicious-file]
+
+  - id: wp-php-in-cache
+    title: "PHP file inside cache directory"
+    severity: high
+    category: wordpress
+    confidence: medium
+    file_types: [php, phtml, php5, phar]
+    path_patterns:
+      - 'wp-content/cache/'
+      - 'wp-content/.cache/'
+    description: "Attackers often hide PHP payloads in cache-like directories."
+    recommendation: "Verify plugin ownership and compare with clean plugin version."
+    tags: [wordpress, cache, suspicious-file]
+
+  - id: wp-hidden-php-file
+    title: "Hidden PHP file"
+    severity: high
+    category: persistence
+    confidence: medium
+    file_types: [php, phtml]
+    path_patterns:
+      - '/\.[^/]+\.php$'
+    description: "Hidden PHP files are often used for persistence."
+    recommendation: "Inspect file origin, timestamp, and content."
+    tags: [wordpress, hidden-file, persistence]
+
+  - id: wp-config-suspicious-code
+    title: "Suspicious executable code in wp-config.php"
+    severity: critical
+    category: wordpress
+    confidence: high
+    target_files:
+      - wp-config.php
+    patterns:
+      - '\beval\s*\('
+      - '\bbase64_decode\s*\('
+      - '\b(gzinflate|str_rot13|shell_exec|system|passthru|assert)\s*\('
+      - '\$_(GET|POST|REQUEST|COOKIE)'
+    description: "wp-config.php should not contain obfuscated code or request-driven execution."
+    recommendation: "Restore wp-config.php from a trusted backup and rotate database credentials."
+    tags: [wordpress, wp-config, critical]
+
+  - id: wp-functions-injected-code
+    title: "Suspicious code inside theme functions.php"
+    severity: high
+    category: wordpress
+    confidence: medium
+    path_patterns:
+      - 'wp-content/themes/.*/functions\.php'
+    patterns:
+      - '\beval\s*\('
+      - '\bbase64_decode\s*\('
+      - '\$_(GET|POST|REQUEST|COOKIE)'
+      - '\bwp_remote_get\s*\('
+      - '\bwp_remote_post\s*\('
+    description: "Malware is frequently injected into active theme functions.php."
+    recommendation: "Compare with original theme package and inspect recent modifications."
+    tags: [wordpress, theme, injection]
+
+  - id: wp-suspicious-admin-creation
+    title: "Suspicious WordPress admin user creation"
+    severity: critical
+    category: persistence
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '\bwp_create_user\s*\('
+      - '\bwp_insert_user\s*\('
+      - '\bupdate_user_meta\s*\(.*wp_capabilities'
+      - "\\bset_role\\s*\\(\\s*[\"']administrator[\"']"
+    description: "Code may be creating or promoting WordPress administrator accounts."
+    recommendation: "Verify whether this is installer/migration logic. Check admin users immediately."
+    tags: [wordpress, persistence, privilege-escalation]
+
+  # ===== PERSISTENCE =====
+  - id: wp-cron-persistence
+    title: "Suspicious scheduled WordPress cron event"
+    severity: high
+    category: persistence
+    confidence: medium
+    file_types: [php]
+    patterns:
+      - '\bwp_schedule_event\s*\('
+      - '\bwp_schedule_single_event\s*\('
+      - "\\badd_action\\s*\\(\\s*[\"']wp[\"']"
+    description: "Malware may use WP-Cron to regain access or reinfect files."
+    recommendation: "Inspect scheduled hooks and compare with known plugin behavior."
+    tags: [wordpress, cron, persistence]
+
+  - id: wp-plugin-activation-persistence
+    title: "Suspicious plugin activation hook behavior"
+    severity: high
+    category: persistence
+    confidence: medium
+    file_types: [php]
+    patterns:
+      - '\bregister_activation_hook\s*\('
+      - '\bfile_put_contents\s*\('
+      - '\bfopen\s*\('
+      - '\bchmod\s*\('
+    description: "Plugin activation hooks that write files or change permissions may be used for persistence."
+    recommendation: "Review plugin source and validate against official release."
+    tags: [wordpress, persistence, file-write]
+
+  - id: php-permission-change
+    title: "Permission modification in PHP code"
+    severity: medium
+    category: persistence
+    confidence: medium
+    file_types: [php]
+    patterns:
+      - '\bchmod\s*\('
+      - '\bchown\s*\('
+      - '\bchgrp\s*\('
+    description: "Malware may change file permissions to keep access."
+    recommendation: "Verify legitimate use and check modified files."
+    tags: [persistence, permissions]
+
+  # ===== REDIRECT =====
+  - id: htaccess-malicious-redirect
+    title: "Suspicious .htaccess redirect or rewrite"
+    severity: high
+    category: redirect
+    confidence: medium
+    target_files:
+      - .htaccess
+    patterns:
+      - '(?i)RewriteRule.*https?://'
+      - '(?i)Redirect\s+30[1278]\s+.*https?://'
+      - '(?i)RewriteCond\s+%\{HTTP_USER_AGENT\}.*(google|bing|bot|crawler)'
+    description: "Attackers often inject SEO spam or conditional redirects into .htaccess."
+    recommendation: "Compare with a known-good .htaccess and remove unknown redirect rules."
+    tags: [redirect, seo-spam, htaccess]
+
+  - id: php-conditional-bot-redirect
+    title: "Conditional redirect for bots or search engines"
+    severity: high
+    category: redirect
+    confidence: high
+    file_types: [php]
+    patterns:
+      - '(?i)(googlebot|bingbot|yandex|crawler|spider|bot)'
+      - "(?i)(header\\s*\\(\\s*[\"']Location:|window\\.location|document\\.location)"
+    description: "SEO malware often redirects only search engines or selected visitors."
+    recommendation: "Inspect redirect target and check search console/security reports."
+    tags: [redirect, seo-spam, cloaking]
+
+  # ===== SECRETS =====
+  - id: secret-hardcoded-db-password
+    title: "Hardcoded database password"
+    severity: high
+    category: secrets
+    confidence: medium
+    file_types: [php, env, ini, json, yml, yaml]
+    patterns:
+      - "(?i)(db_password|database_password|mysql_password|DB_PASSWORD)\\s*[:=]\\s*[\"'][^\"']{6,}[\"']"
+      - "define\\s*\\(\\s*[\"']DB_PASSWORD[\"']\\s*,\\s*[\"'][^\"']+[\"']\\s*\\)"
+    description: "Database credentials found in source code."
+    recommendation: "Ensure file is expected, restrict access, and rotate credentials after compromise."
+    tags: [secrets, credentials, database]
+
+  - id: secret-api-key-token
+    title: "Possible API key or token leak"
+    severity: medium
+    category: secrets
+    confidence: medium
+    file_types: [php, js, env, json, yml, yaml, txt]
+    patterns:
+      - "(?i)(api_key|apikey|access_token|secret_key|client_secret|bearer)\\s*[:=]\\s*[\"'][A-Za-z0-9_\\-\\.]{20,}[\"']"
+    description: "Detects possible hardcoded API keys or tokens."
+    recommendation: "Validate whether secret is active and rotate if exposed."
+    tags: [secrets, api-key, token]
+
+  - id: secret-hardcoded-salt-keys
+    title: "Hardcoded WordPress salts and keys"
+    severity: medium
+    category: secrets
+    confidence: low
+    file_types: [php]
+    patterns:
+      - "define\\s*\\(\\s*[\"']AUTH_KEY[\"']"
+      - "define\\s*\\(\\s*[\"']SECURE_AUTH_KEY[\"']"
+      - "define\\s*\\(\\s*[\"']LOGGED_IN_KEY[\"']"
+    description: "WordPress salts and keys are normally in wp-config.php. Detecting them elsewhere is suspicious."
+    recommendation: "Verify if this file should contain WordPress authentication keys."
+    tags: [secrets, wordpress, salts]
+
+  # ===== INJECTION =====
+  - id: js-suspicious-external-injection
+    title: "Suspicious external JavaScript injection"
+    severity: high
+    category: injection
+    confidence: medium
+    file_types: [php, js, html]
+    patterns:
+      - "<script[^>]+src=[\"']https?://"
+      - 'document\.write\s*\('
+      - 'atob\s*\('
+      - 'String\.fromCharCode\s*\('
+    description: "Detects suspicious JavaScript injection or encoded client-side payloads."
+    recommendation: "Verify external domains and remove unknown scripts."
+    tags: [injection, javascript, xss]
+
+  # ===== INTEGRITY (behavioral, not regex-based) =====
+  - id: wp-core-file-modified
+    title: "Modified WordPress core file"
+    severity: critical
+    category: integrity
+    confidence: high
+    check_type: checksum
+    description: "WordPress core file checksum does not match official release."
+    recommendation: "Replace modified core files from official WordPress package."
+    tags: [wordpress, integrity, core]
+    scope:
+      - wp-admin/
+      - wp-includes/
+
+  - id: wp-unexpected-core-php-file
+    title: "Unexpected PHP file in WordPress core path"
+    severity: critical
+    category: integrity
+    confidence: high
+    check_type: allowlist
+    description: "Detects PHP files that are not part of the official WordPress release."
+    recommendation: "Quarantine unexpected files and verify server compromise timeline."
+    tags: [wordpress, integrity, unknown-file]
+    scope:
+      - wp-admin/
+      - wp-includes/
+
+  - id: wp-plugin-theme-modified
+    title: "Plugin or theme differs from official package"
+    severity: high
+    category: integrity
+    confidence: medium
+    check_type: package_diff
+    description: "Installed plugin/theme file differs from official or baseline version."
+    recommendation: "Review diff and reinstall from trusted source if suspicious."
+    tags: [wordpress, integrity, plugin, theme]
+    scope:
+      - wp-content/plugins/
+      - wp-content/themes/
