@@ -11,6 +11,9 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { to: '/compare', icon: '⚖️', label: t.nav.compare },
     { to: '/rules', icon: '🎯', label: t.nav.customRules },
     { to: '/theme-intel', icon: '🧬', label: t.nav.themeIntel },
+    { to: '/db-scan', icon: '🗄️', label: t.nav.dbScan },
+    { to: '/threat-intel', icon: '🕵️', label: t.nav.threatIntel },
+    { to: '/quarantine', icon: '🔒', label: t.nav.quarantine },
   ];
 
   return (

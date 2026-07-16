@@ -6,6 +6,11 @@ const DB_PATH = path.join(__dirname, '..', '..', 'data', 'wp-sentinel.db');
 
 let db: Database.Database;
 
+export function getDb(): Database.Database {
+  if (!db) throw new Error('Database not initialized. Call initDatabase() first.');
+  return db;
+}
+
 export function initDatabase(): void {
   const fs = require('fs');
   const dir = path.dirname(DB_PATH);
@@ -67,6 +72,50 @@ export function initDatabase(): void {
       high_count INTEGER DEFAULT 0,
       medium_count INTEGER DEFAULT 0,
       low_count INTEGER DEFAULT 0,
+      results_json TEXT DEFAULT '[]',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS quarantine_files (
+      id TEXT PRIMARY KEY,
+      original_path TEXT NOT NULL,
+      quarantine_path TEXT NOT NULL,
+      sha256 TEXT NOT NULL,
+      file_size INTEGER,
+      quarantined_at TEXT NOT NULL,
+      reason TEXT,
+      scan_id TEXT,
+      finding_id TEXT,
+      restored INTEGER DEFAULT 0,
+      restored_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS false_positives (
+      id TEXT PRIMARY KEY,
+      rule_id TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      theme TEXT,
+      plugin TEXT,
+      file_path TEXT,
+      file_hash TEXT,
+      reason TEXT,
+      created_by TEXT DEFAULT 'admin',
+      created_at TEXT NOT NULL,
+      active INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS db_scans (
+      id TEXT PRIMARY KEY,
+      host TEXT,
+      database_name TEXT,
+      table_prefix TEXT,
+      connected INTEGER DEFAULT 0,
+      total_findings INTEGER DEFAULT 0,
+      critical_count INTEGER DEFAULT 0,
+      high_count INTEGER DEFAULT 0,
+      medium_count INTEGER DEFAULT 0,
+      low_count INTEGER DEFAULT 0,
+      duration INTEGER DEFAULT 0,
       results_json TEXT DEFAULT '[]',
       created_at TEXT NOT NULL
     );
@@ -463,4 +512,61 @@ export function getThemeScan(id: string): any | null {
 export function deleteThemeScan(id: string): boolean {
   const result = db.prepare('DELETE FROM theme_scans WHERE id = ?').run(id);
   return result.changes > 0;
+}
+
+// Database Scan CRUD
+export function saveDbScan(record: any): void {
+  db.prepare(`
+    INSERT INTO db_scans (id, host, database_name, table_prefix, connected, total_findings, critical_count, high_count, medium_count, low_count, duration, results_json, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    record.id,
+    record.config.host,
+    record.config.database,
+    record.config.tablePrefix,
+    record.connected ? 1 : 0,
+    record.summary.total,
+    record.summary.critical,
+    record.summary.high,
+    record.summary.medium,
+    record.summary.low,
+    record.duration,
+    JSON.stringify(record.findings),
+    record.createdAt
+  );
+}
+
+export function getDbScanHistory(limit = 50, offset = 0): any[] {
+  const rows = db.prepare(`
+    SELECT id, host, database_name, table_prefix, connected, total_findings, critical_count, high_count, medium_count, low_count, duration, created_at
+    FROM db_scans ORDER BY created_at DESC LIMIT ? OFFSET ?
+  `).all(limit, offset) as any[];
+  return rows.map(r => ({
+    id: r.id,
+    host: r.host,
+    database: r.database_name,
+    tablePrefix: r.table_prefix,
+    connected: !!r.connected,
+    totalFindings: r.total_findings,
+    criticalCount: r.critical_count,
+    highCount: r.high_count,
+    mediumCount: r.medium_count,
+    lowCount: r.low_count,
+    duration: r.duration,
+    createdAt: r.created_at,
+  }));
+}
+
+export function getDbScan(id: string): any | null {
+  const row = db.prepare('SELECT * FROM db_scans WHERE id = ?').get(id) as any;
+  if (!row) return null;
+  return {
+    id: row.id,
+    config: { host: row.host, database: row.database_name, tablePrefix: row.table_prefix },
+    connected: !!row.connected,
+    findings: JSON.parse(row.results_json || '[]'),
+    summary: { total: row.total_findings, critical: row.critical_count, high: row.high_count, medium: row.medium_count, low: row.low_count },
+    duration: row.duration,
+    createdAt: row.created_at,
+  };
 }

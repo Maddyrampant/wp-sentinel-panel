@@ -12,6 +12,9 @@ const en = {
     compare: 'Compare',
     customRules: 'Custom Rules',
     themeIntel: 'Theme Intel',
+    dbScan: 'DB Scan',
+    threatIntel: 'Threat Intel',
+    quarantine: 'Quarantine',
   },
 
   // Language

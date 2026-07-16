@@ -7,6 +7,9 @@ import History from './pages/History';
 import Compare from './pages/Compare';
 import CustomRules from './pages/CustomRules';
 import ThemeIntel from './pages/ThemeIntel';
+import DatabaseScan from './pages/DatabaseScan';
+import Quarantine from './pages/Quarantine';
+import ThreatTimeline from './pages/ThreatTimeline';
 
 export default function App() {
   return (
@@ -19,6 +22,9 @@ export default function App() {
         <Route path="/compare" element={<Compare />} />
         <Route path="/rules" element={<CustomRules />} />
         <Route path="/theme-intel" element={<ThemeIntel />} />
+        <Route path="/db-scan" element={<DatabaseScan />} />
+        <Route path="/quarantine" element={<Quarantine />} />
+        <Route path="/threat-intel" element={<ThreatTimeline />} />
       </Routes>
     </Layout>
   );

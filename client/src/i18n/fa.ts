@@ -12,6 +12,9 @@ const fa = {
     compare: 'مقایسه',
     customRules: 'قوانین سفارشی',
     themeIntel: 'تحلیل قالب',
+    dbScan: 'اسکن دیتابیس',
+    threatIntel: 'تحلیل تهدید',
+    quarantine: 'قرنطینه',
   },
 
   // Language

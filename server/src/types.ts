@@ -6,7 +6,12 @@ export type CheckCategory =
   | 'security'
   | 'code-pattern'
   | 'file-analysis'
-  | 'wordpress';
+  | 'wordpress'
+  | 'evasion'
+  | 'supply-chain'
+  | 'spam'
+  | 'js-malware'
+  | 'integrity';
 
 export interface Finding {
   file: string;

@@ -6,6 +6,10 @@ import { loadBuiltinRules } from './rules/rule-loader';
 import scanRoutes from './routes/scan';
 import rulesRoutes from './routes/rules';
 import themeIntelRoutes from './routes/theme-intel';
+import dbScanRoutes from './routes/db-scan';
+import quarantineRoutes from './routes/quarantine';
+import remediationRoutes from './routes/remediation';
+import falsePositiveRoutes from './routes/false-positives';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +34,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api', scanRoutes);
 app.use('/api', rulesRoutes);
 app.use('/api', themeIntelRoutes);
+app.use('/api', dbScanRoutes);
+app.use('/api', quarantineRoutes);
+app.use('/api', remediationRoutes);
+app.use('/api', falsePositiveRoutes);
 
 // Serve static React build in production
 const clientBuild = path.join(__dirname, '..', '..', 'client', 'dist');

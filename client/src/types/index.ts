@@ -1,5 +1,16 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
-export type CheckCategory = 'obfuscation' | 'external-access' | 'security' | 'code-pattern' | 'file-analysis' | 'wordpress';
+export type CheckCategory =
+  | 'obfuscation'
+  | 'external-access'
+  | 'security'
+  | 'code-pattern'
+  | 'file-analysis'
+  | 'wordpress'
+  | 'evasion'
+  | 'supply-chain'
+  | 'spam'
+  | 'js-malware'
+  | 'integrity';
 
 export interface Finding {
   file: string;
@@ -184,4 +195,131 @@ export interface ThemeScanHistoryItem {
   medium_count: number;
   low_count: number;
   created_at: string;
+}
+
+// Attack Chain types
+export interface AttackChainLink {
+  type: string;
+  finding: Finding;
+  file: string;
+  line: number;
+  description: string;
+}
+
+export interface AttackChain {
+  id: string;
+  severity: Severity;
+  confidence: number;
+  chainType: string;
+  links: AttackChainLink[];
+  files: string[];
+  riskScore: number;
+  recommendation: string;
+}
+
+// Timeline types
+export interface TimelineEvent {
+  id: string;
+  timestamp: string;
+  type: string;
+  file?: string;
+  severity: Severity;
+  description: string;
+  relatedFindingIds: string[];
+}
+
+// Database Scan types
+export interface DatabaseFinding {
+  id: string;
+  check: string;
+  table: string;
+  column: string;
+  rowId?: number;
+  severity: Severity;
+  message: string;
+  matchedValue: string;
+  recommendation: string;
+}
+
+export interface DatabaseScanResult {
+  id: string;
+  config: { host: string; database: string; tablePrefix: string };
+  connected: boolean;
+  findings: DatabaseFinding[];
+  summary: { total: number; critical: number; high: number; medium: number; low: number };
+  duration: number;
+  createdAt: string;
+}
+
+// Quarantine types
+export interface QuarantineRecord {
+  id: string;
+  originalPath: string;
+  quarantinePath: string;
+  sha256: string;
+  fileSize: number;
+  quarantinedAt: string;
+  reason: string;
+  scanId: string;
+  findingId: string;
+  restored: boolean;
+  restoredAt?: string;
+}
+
+// Remediation types
+export interface RemediationStep {
+  order: number;
+  category: string;
+  severity: Severity;
+  action: string;
+  details: string;
+  affectedFiles?: string[];
+  affectedDbTables?: string[];
+  estimatedTime: string;
+}
+
+export interface RemediationPlan {
+  scanId: string;
+  overallStatus: string;
+  confidence: number;
+  urgency: string;
+  steps: RemediationStep[];
+  summary: string;
+}
+
+// False Positive types
+export interface FalsePositive {
+  id: string;
+  ruleId: string;
+  scope: string;
+  theme?: string;
+  plugin?: string;
+  filePath?: string;
+  fileHash?: string;
+  reason: string;
+  createdBy: string;
+  createdAt: string;
+  active: boolean;
+}
+
+// Site Status types
+export interface SiteStatus {
+  status: string;
+  confidence: number;
+  mainReasons: string[];
+  details: Record<string, boolean>;
+  score: number;
+}
+
+// Domain Inventory types
+export interface DomainInventoryEntry {
+  domain: string;
+  tld: string;
+  firstSeen: string;
+  files: Array<{ file: string; line: number }>;
+  urls: string[];
+  isSafe: boolean;
+  isSuspicious: boolean;
+  reputationScore: number;
+  flags: string[];
 }

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ScanSummary, ScanHistoryItem, DashboardStats, CustomRule, TrendDataPoint, ThemeScanResult, ThemeScanHistoryItem } from '../types';
+import type { ScanSummary, ScanHistoryItem, DashboardStats, CustomRule, TrendDataPoint, ThemeScanResult, ThemeScanHistoryItem, DatabaseScanResult, QuarantineRecord, RemediationPlan, FalsePositive, AttackChain, TimelineEvent, SiteStatus } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
 
@@ -97,4 +97,73 @@ export async function getThemeScan(id: string): Promise<ThemeScanResult> {
 
 export async function deleteThemeScan(id: string): Promise<void> {
   await api.delete(`/theme-scan/${id}`);
+}
+
+// Database Scan API
+export async function dbScan(config: { host: string; port?: number; database: string; user: string; password: string; tablePrefix?: string }): Promise<DatabaseScanResult> {
+  const { data } = await api.post('/db-scan', config);
+  return data;
+}
+
+export async function getDbScanHistory(limit = 50, offset = 0): Promise<any[]> {
+  const { data } = await api.get('/db-scan/history', { params: { limit, offset } });
+  return data;
+}
+
+// Quarantine API
+export async function quarantineFile(filePath: string, reason: string, scanId: string, findingId: string): Promise<QuarantineRecord> {
+  const { data } = await api.post('/quarantine', { filePath, reason, scanId, findingId });
+  return data;
+}
+
+export async function restoreQuarantine(id: string): Promise<void> {
+  await api.post(`/quarantine/${id}/restore`);
+}
+
+export async function getQuarantineList(): Promise<QuarantineRecord[]> {
+  const { data } = await api.get('/quarantine');
+  return data;
+}
+
+export async function deleteQuarantineFile(id: string): Promise<void> {
+  await api.delete(`/quarantine/${id}`);
+}
+
+// Remediation API
+export async function getRemediationPlan(scanId: string): Promise<RemediationPlan> {
+  const { data } = await api.get(`/remediation/${scanId}`);
+  return data;
+}
+
+// False Positive API
+export async function createFalsePositive(fp: { ruleId: string; scope: string; theme?: string; plugin?: string; filePath?: string; fileHash?: string; reason: string }): Promise<FalsePositive> {
+  const { data } = await api.post('/false-positives', fp);
+  return data;
+}
+
+export async function getFalsePositives(): Promise<FalsePositive[]> {
+  const { data } = await api.get('/false-positives');
+  return data;
+}
+
+export async function deleteFalsePositive(id: string): Promise<void> {
+  await api.delete(`/false-positives/${id}`);
+}
+
+// Timeline API
+export async function getTimeline(scanId: string): Promise<TimelineEvent[]> {
+  const { data } = await api.get(`/timeline/${scanId}`);
+  return data;
+}
+
+// Attack Chain API
+export async function getAttackChains(scanId: string): Promise<AttackChain[]> {
+  const { data } = await api.get(`/attack-chains/${scanId}`);
+  return data;
+}
+
+// Site Status API
+export async function getSiteStatus(scanId: string): Promise<SiteStatus> {
+  const { data } = await api.get(`/site-status/${scanId}`);
+  return data;
 }

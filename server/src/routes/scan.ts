@@ -6,6 +6,9 @@ import { runScan } from '../scanner/engine';
 import { extractZip, cleanupTemp } from '../scanner/zip-handler';
 import { saveScan, getScan, deleteScan, updateScan, getHistory, getStats, getTrendData } from '../db/database';
 import { generatePdfReport } from '../scanner/pdf-report';
+import { generateTimeline } from '../scanner/timeline';
+import { detectAttackChains } from '../scanner/attack-chain';
+import { calculateSiteStatus } from '../scanner/site-status';
 
 const router = Router();
 const upload = multer({ dest: path.join(__dirname, '..', '..', 'uploads'), limits: { fileSize: 200 * 1024 * 1024 } });
@@ -187,6 +190,56 @@ router.get('/report/:id/:format', async (req: Request, res: Response) => {
   }
 
   return res.status(400).json({ error: 'Invalid format. Use: json, csv, html, pdf' });
+});
+
+// GET /api/timeline/:scanId - Get timeline events
+router.get('/timeline/:scanId', (req: Request, res: Response) => {
+  const scan = getScan(req.params.scanId);
+  if (!scan) return res.status(404).json({ error: 'Scan not found' });
+
+  const allFindings: any[] = [];
+  for (const result of scan.results) {
+    allFindings.push(...result.findings.map(f => ({
+      file: f.file,
+      line: f.line,
+      message: f.message,
+      details: f.details,
+      code: f.code,
+      ruleId: f.ruleId,
+    })));
+  }
+
+  const events = generateTimeline(scan.targetName, allFindings);
+  res.json(events);
+});
+
+// GET /api/attack-chains/:scanId - Get attack chains
+router.get('/attack-chains/:scanId', (req: Request, res: Response) => {
+  const scan = getScan(req.params.scanId);
+  if (!scan) return res.status(404).json({ error: 'Scan not found' });
+
+  const allFindings: any[] = [];
+  for (const result of scan.results) {
+    allFindings.push(...result.findings);
+  }
+
+  const chains = detectAttackChains(allFindings);
+  res.json(chains);
+});
+
+// GET /api/site-status/:scanId - Get site compromise status
+router.get('/site-status/:scanId', (req: Request, res: Response) => {
+  const scan = getScan(req.params.scanId);
+  if (!scan) return res.status(404).json({ error: 'Scan not found' });
+
+  const allFindings: any[] = [];
+  for (const result of scan.results) {
+    allFindings.push(...result.findings);
+  }
+
+  const chains = detectAttackChains(allFindings);
+  const status = calculateSiteStatus(scan, chains);
+  res.json(status);
 });
 
 export default router;
