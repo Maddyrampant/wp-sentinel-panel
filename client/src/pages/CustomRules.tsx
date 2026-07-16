@@ -47,7 +47,7 @@ export default function CustomRules() {
   const [newTag, setNewTag] = useState('');
   const [importing, setImporting] = useState(false);
 
-  const load = () => getCustomRules().then(setRules).finally(() => setLoading(false));
+  const load = () => getCustomRules().then(d => setRules(Array.isArray(d) ? d : [])).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const categories = useMemo(() => {

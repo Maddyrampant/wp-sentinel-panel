@@ -14,7 +14,7 @@ export default function Compare() {
   const [comparing, setComparing] = useState(false);
 
   useEffect(() => {
-    getHistory(100).then(setItems).finally(() => setLoading(false));
+    getHistory(100).then(d => setItems(Array.isArray(d) ? d : [])).finally(() => setLoading(false));
   }, []);
 
   const handleCompare = async () => {

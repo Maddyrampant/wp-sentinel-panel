@@ -12,7 +12,7 @@ export default function History() {
 
   const load = () => {
     setLoading(true);
-    getHistory(100).then(setItems).finally(() => setLoading(false));
+    getHistory(100).then(d => setItems(Array.isArray(d) ? d : [])).finally(() => setLoading(false));
   };
 
   useEffect(load, []);

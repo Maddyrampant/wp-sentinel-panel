@@ -35,7 +35,7 @@ export default function ThemeIntel() {
     setHistoryLoading(true);
     try {
       const h = await getThemeScanHistory();
-      setHistory(h);
+      setHistory(Array.isArray(h) ? h : []);
     } catch {
       setHistory([]);
     } finally {

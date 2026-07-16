@@ -23,8 +23,8 @@ export default function ThreatTimeline() {
         getRemediationPlan(scanId).catch(() => null),
         getSiteStatus(scanId).catch(() => null),
       ]);
-      setTimeline(tl);
-      setChains(ch);
+      setTimeline(Array.isArray(tl) ? tl : []);
+      setChains(Array.isArray(ch) ? ch : []);
       setRemediation(rem);
       setSiteStatus(st);
     } finally { setLoading(false); }

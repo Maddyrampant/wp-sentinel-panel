@@ -17,8 +17,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     getStats().then(setStats).catch(() => {});
-    getHistory(5).then(setRecent).catch(() => {});
-    getTrend().then(setTrend).catch(() => {});
+    getHistory(5).then(d => setRecent(Array.isArray(d) ? d : [])).catch(() => {});
+    getTrend().then(d => setTrend(Array.isArray(d) ? d : [])).catch(() => {});
     setLoading(false);
   }, []);
 

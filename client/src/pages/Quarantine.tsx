@@ -16,7 +16,7 @@ export default function Quarantine() {
     setLoading(true);
     try {
       const data = await getQuarantineList();
-      setRecords(data);
+      setRecords(Array.isArray(data) ? data : []);
     } catch { setRecords([]); }
     finally { setLoading(false); }
   };
