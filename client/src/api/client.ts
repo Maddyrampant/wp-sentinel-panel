@@ -85,6 +85,16 @@ export async function themeScan(themesPath: string, themeName?: string): Promise
   return data;
 }
 
+export async function uploadThemeScan(file: File, themeName?: string): Promise<ThemeScanResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (themeName) formData.append('themeName', themeName);
+  const { data } = await api.post('/theme-scan/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function getThemeScanHistory(limit = 50, offset = 0): Promise<ThemeScanHistoryItem[]> {
   const { data } = await api.get('/theme-scan/history', { params: { limit, offset } });
   return data;
@@ -174,6 +184,15 @@ export async function pluginScan(pluginsPath: string, pluginName?: string): Prom
   return data;
 }
 
+export async function uploadPluginScan(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post('/plugin-scan/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function getPluginScanHistory(): Promise<any[]> {
   // Placeholder for future plugin scan history
   return [];
@@ -182,6 +201,15 @@ export async function getPluginScanHistory(): Promise<any[]> {
 // Hardening Check API
 export async function hardeningScan(targetPath: string): Promise<any> {
   const { data } = await api.post('/hardening-scan', { targetPath });
+  return data;
+}
+
+export async function uploadHardeningScan(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post('/hardening-scan/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return data;
 }
 

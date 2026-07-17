@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { pluginScan } from '../api/client';
+import { useState, useRef } from 'react';
+import { pluginScan, uploadPluginScan } from '../api/client';
 import type { PluginIntelResult } from '../types';
 import { useTranslation } from '../i18n';
-import { IconPackage, IconSearch, IconAlertTriangle, IconShieldCheck } from '../components/Icons';
+import { IconPackage, IconSearch, IconAlertTriangle, IconShieldCheck, IconUpload } from '../components/Icons';
 
 export default function PluginIntel() {
   const { t } = useTranslation();
@@ -12,6 +12,10 @@ export default function PluginIntel() {
   const [result, setResult] = useState<PluginIntelResult | null>(null);
   const [error, setError] = useState('');
   const [results, setResults] = useState<PluginIntelResult[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [inputMode, setInputMode] = useState<'path' | 'upload'>('path');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleScan = async () => {
     if (!pluginsPath.trim()) return;
@@ -30,6 +34,27 @@ export default function PluginIntel() {
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleFileScan = async () => {
+    if (!file) return;
+    setScanning(true);
+    setError('');
+    try {
+      const res = await uploadPluginScan(file);
+      setResults(res.results || []);
+    } catch (err: any) {
+      setError(err.message || 'Upload scan failed');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer.files[0];
+    if (f?.name.endsWith('.zip')) setFile(f);
   };
 
   const riskColor = (level: string) => {
@@ -53,38 +78,86 @@ export default function PluginIntel() {
       </div>
 
       <div className="bg-dark-800 border border-dark-700 rounded-xl p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs text-dark-500 mb-1">{t.pluginIntel?.pluginsPath || 'Plugins Directory Path'}</label>
-            <input
-              type="text"
-              value={pluginsPath}
-              onChange={e => setPluginsPath(e.target.value)}
-              placeholder="/var/www/html/wp-content/plugins"
-              className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-dark-500 mb-1">{t.pluginIntel?.singlePlugin || 'Single Plugin Name (optional)'}</label>
-            <input
-              type="text"
-              value={pluginName}
-              onChange={e => setPluginName(e.target.value)}
-              placeholder="e.g., contact-form-7"
-              className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={handleScan}
-              disabled={scanning || !pluginsPath.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              <IconSearch size={16} />
-              {scanning ? (t.pluginIntel?.scanning || 'Scanning...') : (t.pluginIntel?.scanButton || 'Scan Plugins')}
-            </button>
-          </div>
+        {/* Mode Toggle */}
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setInputMode('path')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${inputMode === 'path' ? 'bg-blue-600 text-white' : 'bg-dark-700 text-dark-500 hover:text-gray-300'}`}>
+            {t.pluginIntel?.pluginsPath || 'Directory Path'}
+          </button>
+          <button onClick={() => setInputMode('upload')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${inputMode === 'upload' ? 'bg-blue-600 text-white' : 'bg-dark-700 text-dark-500 hover:text-gray-300'}`}>
+            {t.newScan?.uploadZip || 'Upload ZIP'}
+          </button>
         </div>
+
+        {inputMode === 'path' ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs text-dark-500 mb-1">{t.pluginIntel?.pluginsPath || 'Plugins Directory Path'}</label>
+              <input
+                type="text"
+                value={pluginsPath}
+                onChange={e => setPluginsPath(e.target.value)}
+                placeholder="/var/www/html/wp-content/plugins"
+                className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-dark-500 mb-1">{t.pluginIntel?.singlePlugin || 'Single Plugin Name (optional)'}</label>
+              <input
+                type="text"
+                value={pluginName}
+                onChange={e => setPluginName(e.target.value)}
+                placeholder="e.g., contact-form-7"
+                className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={handleScan}
+                disabled={scanning || !pluginsPath.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <IconSearch size={16} />
+                {scanning ? (t.pluginIntel?.scanning || 'Scanning...') : (t.pluginIntel?.scanButton || 'Scan Plugins')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-dark-600 hover:border-dark-500'}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+            >
+              <input ref={fileRef} type="file" accept=".zip" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file ? (
+                <div>
+                  <div className="mb-2 flex justify-center text-blue-400"><IconPackage size={32} /></div>
+                  <div className="text-white font-medium text-sm">{file.name}</div>
+                  <div className="text-dark-500 text-xs mt-1">{(file.size / 1024).toFixed(1)} KB</div>
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-2 flex justify-center text-dark-500"><IconUpload size={32} /></div>
+                  <div className="text-gray-400 text-sm">{t.newScan?.dropzone || 'Drag & drop .zip file'}</div>
+                  <div className="text-dark-500 text-xs mt-1">{t.newScan?.maxSize || 'Max 200MB'}</div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={handleFileScan}
+                disabled={scanning || !file}
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <IconSearch size={16} />
+                {scanning ? (t.pluginIntel?.scanning || 'Scanning...') : (t.newScan?.uploadAndScan || 'Upload & Scan')}
+              </button>
+            </div>
+          </div>
+        )}
+
         {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
       </div>
 

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from '../i18n';
-import { themeScan, getThemeScanHistory, deleteThemeScan } from '../api/client';
+import { themeScan, uploadThemeScan, getThemeScanHistory, deleteThemeScan } from '../api/client';
 import type { ThemeScanResult, ThemeIntelResult, ThemeFinding } from '../types';
-import { IconCheckCircle, IconLightbulb } from '../components/Icons';
+import { IconCheckCircle, IconLightbulb, IconPackage, IconUpload } from '../components/Icons';
 
 export default function ThemeIntel() {
   const { t, dir } = useTranslation();
@@ -15,6 +15,10 @@ export default function ThemeIntel() {
   const [activeTab, setActiveTab] = useState<'results' | 'history'>('results');
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [inputMode, setInputMode] = useState<'path' | 'upload'>('path');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleScan = async () => {
     if (!themesPath.trim()) return;
@@ -30,6 +34,29 @@ export default function ThemeIntel() {
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleFileScan = async () => {
+    if (!file) return;
+    setScanning(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await uploadThemeScan(file, themeName.trim() || undefined);
+      setResult(res);
+      setActiveTab('results');
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Upload scan failed');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer.files[0];
+    if (f?.name.endsWith('.zip')) setFile(f);
   };
 
   const loadHistory = async () => {
@@ -101,33 +128,83 @@ export default function ThemeIntel() {
 
       {/* Scan Form */}
       <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
+        {/* Mode Toggle */}
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setInputMode('path')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${inputMode === 'path' ? 'bg-blue-600 text-white' : 'bg-dark-700 text-dark-500 hover:text-gray-300'}`}>
+            {t.themeIntel.themesPath}
+          </button>
+          <button onClick={() => setInputMode('upload')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${inputMode === 'upload' ? 'bg-blue-600 text-white' : 'bg-dark-700 text-dark-500 hover:text-gray-300'}`}>
+            {t.newScan?.uploadZip || 'Upload ZIP'}
+          </button>
+        </div>
+
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">{t.themeIntel.themesPath}</label>
-            <input
-              type="text"
-              value={themesPath}
-              onChange={(e) => setThemesPath(e.target.value)}
-              placeholder={t.themeIntel.pathPlaceholder}
-              className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-gray-200 placeholder-dark-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">{t.themeIntel.singleTheme}</label>
-            <input
-              type="text"
-              value={themeName}
-              onChange={(e) => setThemeName(e.target.value)}
-              placeholder={t.themeIntel.singleThemePlaceholder}
-              className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-gray-200 placeholder-dark-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
+          {inputMode === 'path' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">{t.themeIntel.themesPath}</label>
+                <input
+                  type="text"
+                  value={themesPath}
+                  onChange={(e) => setThemesPath(e.target.value)}
+                  placeholder={t.themeIntel.pathPlaceholder}
+                  className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-gray-200 placeholder-dark-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">{t.themeIntel.singleTheme}</label>
+                <input
+                  type="text"
+                  value={themeName}
+                  onChange={(e) => setThemeName(e.target.value)}
+                  placeholder={t.themeIntel.singleThemePlaceholder}
+                  className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-gray-200 placeholder-dark-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">{t.themeIntel.singleTheme}</label>
+                <input
+                  type="text"
+                  value={themeName}
+                  onChange={(e) => setThemeName(e.target.value)}
+                  placeholder={t.themeIntel.singleThemePlaceholder}
+                  className="w-full bg-dark-900 border border-dark-600 rounded-lg px-4 py-2.5 text-gray-200 placeholder-dark-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-dark-600 hover:border-dark-500'}`}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+              >
+                <input ref={fileRef} type="file" accept=".zip" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                {file ? (
+                  <div>
+                    <div className="mb-2 flex justify-center text-blue-400"><IconPackage size={32} /></div>
+                    <div className="text-white font-medium text-sm">{file.name}</div>
+                    <div className="text-dark-500 text-xs mt-1">{(file.size / 1024).toFixed(1)} KB</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mb-2 flex justify-center text-dark-500"><IconUpload size={32} /></div>
+                    <div className="text-gray-400 text-sm">{t.newScan?.dropzone || 'Drag & drop .zip file'}</div>
+                    <div className="text-dark-500 text-xs mt-1">{t.newScan?.maxSize || 'Max 200MB'}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <button
-            onClick={handleScan}
-            disabled={scanning || !themesPath.trim()}
+            onClick={inputMode === 'path' ? handleScan : handleFileScan}
+            disabled={scanning || (inputMode === 'path' ? !themesPath.trim() : !file)}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
           >
-            {scanning ? t.themeIntel.scanning : t.themeIntel.scanButton}
+            {scanning ? t.themeIntel.scanning : (inputMode === 'upload' ? (t.newScan?.uploadAndScan || 'Upload & Scan') : t.themeIntel.scanButton)}
           </button>
         </div>
         {error && (
