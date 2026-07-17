@@ -4,6 +4,7 @@ import { getScan, getReportUrl } from '../api/client';
 import type { ScanSummary, Severity, CheckCategory, CheckResult, Finding } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useTranslation } from '../i18n';
+import { IconDashboard, IconEyeOff, IconGlobe, IconSecurity, IconCode, IconFileSearch, IconServer, IconFileText, IconDownload, IconLightbulb } from '../components/Icons';
 
 const severityOrder: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const sevColors: Record<Severity, string> = { critical: 'text-red-400', high: 'text-orange-400', medium: 'text-yellow-400', low: 'text-cyan-400', info: 'text-gray-400' };
@@ -15,7 +16,7 @@ const riskBg = (score: number) => score >= 80 ? 'text-red-400' : score >= 60 ? '
 interface TabDef {
   id: string;
   labelKey: string;
-  icon: string;
+  icon: React.ReactNode;
   categories: CheckCategory[];
 }
 
@@ -42,13 +43,13 @@ export default function ScanResult() {
   ];
 
   const TABS: TabDef[] = [
-    { id: 'overview', labelKey: t.scanResult.overview, icon: '📊', categories: [] },
-    { id: 'obfuscation', labelKey: t.scanResult.obfuscatedFiles, icon: '🔐', categories: ['obfuscation'] },
-    { id: 'external', labelKey: t.scanResult.externalAccess, icon: '🌐', categories: ['external-access'] },
-    { id: 'security', labelKey: t.scanResult.securityIssues, icon: '🛡️', categories: ['security'] },
-    { id: 'code', labelKey: t.scanResult.codePatterns, icon: '🔍', categories: ['code-pattern'] },
-    { id: 'files', labelKey: t.scanResult.fileAnalysis, icon: '📁', categories: ['file-analysis'] },
-    { id: 'wordpress', labelKey: t.scanResult.wordpress, icon: '🌐', categories: ['wordpress'] },
+    { id: 'overview', labelKey: t.scanResult.overview, icon: <IconDashboard size={16} />, categories: [] },
+    { id: 'obfuscation', labelKey: t.scanResult.obfuscatedFiles, icon: <IconEyeOff size={16} />, categories: ['obfuscation'] },
+    { id: 'external', labelKey: t.scanResult.externalAccess, icon: <IconGlobe size={16} />, categories: ['external-access'] },
+    { id: 'security', labelKey: t.scanResult.securityIssues, icon: <IconSecurity size={16} />, categories: ['security'] },
+    { id: 'code', labelKey: t.scanResult.codePatterns, icon: <IconCode size={16} />, categories: ['code-pattern'] },
+    { id: 'files', labelKey: t.scanResult.fileAnalysis, icon: <IconFileSearch size={16} />, categories: ['file-analysis'] },
+    { id: 'wordpress', labelKey: t.scanResult.wordpress, icon: <IconServer size={16} />, categories: ['wordpress'] },
   ];
 
   useEffect(() => {
@@ -122,10 +123,10 @@ export default function ScanResult() {
           <p className="text-dark-500 mt-1">{new Date(scan.scanDate).toLocaleString()} | {scan.duration}ms | {scan.totalFiles} {t.scanResult.files} | {scan.phpFiles} PHP</p>
         </div>
         <div className="flex gap-2">
-          <a href={getReportUrl(scan.id, 'pdf')} className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm transition-colors font-medium">📄 PDF</a>
-          <a href={getReportUrl(scan.id, 'html')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">📥 HTML</a>
-          <a href={getReportUrl(scan.id, 'json')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">📥 JSON</a>
-          <a href={getReportUrl(scan.id, 'csv')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">📥 CSV</a>
+          <a href={getReportUrl(scan.id, 'pdf')} className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm transition-colors font-medium flex items-center gap-1.5"><IconFileText size={14} /> PDF</a>
+          <a href={getReportUrl(scan.id, 'html')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5"><IconDownload size={14} /> HTML</a>
+          <a href={getReportUrl(scan.id, 'json')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5"><IconDownload size={14} /> JSON</a>
+          <a href={getReportUrl(scan.id, 'csv')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5"><IconDownload size={14} /> CSV</a>
         </div>
       </div>
 
@@ -154,7 +155,7 @@ export default function ScanResult() {
           return (
             <button key={tab.id} onClick={() => { setActiveTab(tab.id); setExpandedFile(null); setExpandedCheck(null); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-dark-500 hover:text-gray-300 hover:bg-dark-700'}`}>
-              <span>{tab.icon}</span>
+              <span className="flex-shrink-0">{tab.icon}</span>
               <span>{tab.labelKey}</span>
               {count > 0 && <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-blue-500/30' : 'bg-dark-700'}`}>{count}</span>}
             </button>
@@ -239,10 +240,10 @@ function OverviewTab({ scan, riskScore }: { scan: ScanSummary; riskScore: number
           {catEntries.map(([cat, count]) => {
             const pct = (count / maxCat) * 100;
             const catColors: Record<string, string> = { security: 'bg-red-500', obfuscation: 'bg-purple-500', 'external-access': 'bg-cyan-500', 'code-pattern': 'bg-yellow-500', 'file-analysis': 'bg-green-500', wordpress: 'bg-blue-500' };
-            const catIcons: Record<string, string> = { security: '🛡️', obfuscation: '🔐', 'external-access': '🌐', 'code-pattern': '🔍', 'file-analysis': '📁', wordpress: '🌐' };
+            const catIcons: Record<string, React.ReactNode> = { security: <IconSecurity size={18} />, obfuscation: <IconEyeOff size={18} />, 'external-access': <IconGlobe size={18} />, 'code-pattern': <IconCode size={18} />, 'file-analysis': <IconFileSearch size={18} />, wordpress: <IconServer size={18} /> };
             return (
               <div key={cat} className="flex items-center gap-4">
-                <span className="text-lg w-8 text-center">{catIcons[cat] || '📄'}</span>
+                <span className="w-8 text-center flex-shrink-0 text-dark-500">{catIcons[cat] || <IconFileSearch size={18} />}</span>
                 <span className="text-sm text-gray-300 w-40">{catLabels[cat] || cat}</span>
                 <div className="flex-1 bg-dark-700 rounded-full h-3">
                   <div className={`h-3 rounded-full ${catColors[cat] || 'bg-gray-500'}`} style={{ width: `${pct}%` }} />
@@ -304,7 +305,7 @@ function FileGroupedTab({
       {/* Tab Summary Bar */}
       <div className="flex items-center gap-4 mb-4">
         <div className="flex items-center gap-2 bg-dark-800 border border-dark-700 rounded-lg px-4 py-2">
-          <span className="text-lg">{tab.icon}</span>
+          <span className="flex-shrink-0">{tab.icon}</span>
           <span className="text-white font-medium">{tab.labelKey}</span>
           <span className="text-dark-500 text-sm">|</span>
           <span className="text-white font-bold">{tabTotalFindings}</span>

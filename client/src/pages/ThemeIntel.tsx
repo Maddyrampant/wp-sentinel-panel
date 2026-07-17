@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from '../i18n';
 import { themeScan, getThemeScanHistory, deleteThemeScan } from '../api/client';
 import type { ThemeScanResult, ThemeIntelResult, ThemeFinding } from '../types';
+import { IconCheckCircle, IconLightbulb } from '../components/Icons';
 
 export default function ThemeIntel() {
   const { t, dir } = useTranslation();
@@ -353,8 +354,8 @@ function ThemeCard({
 
           {/* Nulled - No findings */}
           {theme.nulledIndicators.length === 0 && theme.malwarePatterns.length === 0 && (
-            <div className="text-sm text-green-400/80 bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-              ✅ {t.themeIntel.noMalware}
+            <div className="text-sm text-green-400/80 bg-green-500/5 border border-green-500/20 rounded-lg p-3 flex items-center gap-2">
+              <IconCheckCircle size={16} className="text-green-400 shrink-0" /> {t.themeIntel.noMalware}
             </div>
           )}
 
@@ -462,7 +463,7 @@ function FindingRow({ finding, t, severityColor }: { finding: ThemeFinding; t: a
             </pre>
           )}
           {finding.recommendation && (
-            <p className="text-xs text-blue-400/80 mt-2">💡 {finding.recommendation}</p>
+            <p className="text-xs text-blue-400/80 mt-2 flex items-center gap-1"><IconLightbulb size={12} /> {finding.recommendation}</p>
           )}
         </div>
         <div className="text-right shrink-0">

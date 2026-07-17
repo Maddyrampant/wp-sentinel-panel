@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from '../i18n';
 import { dbScan, getDbScanHistory } from '../api/client';
 import type { DatabaseScanResult } from '../types';
+import { IconCheckCircle, IconXCircle, IconLightbulb } from '../components/Icons';
 
 export default function DatabaseScan() {
   const { t } = useTranslation();
@@ -83,8 +84,8 @@ export default function DatabaseScan() {
       {result && (
         <div className="space-y-4">
           <div className="bg-dark-800 border border-dark-700 rounded-xl p-4 flex gap-6 items-center">
-            <div className="text-sm text-gray-400">
-              {result.connected ? '✅ Connected' : '❌ Connection failed'}
+            <div className="text-sm text-gray-400 flex items-center gap-1.5">
+              {result.connected ? <><IconCheckCircle size={16} className="text-green-400" /> Connected</> : <><IconXCircle size={16} className="text-red-400" /> Connection failed</>}
               <span className="ml-3 text-dark-500">({(result.duration / 1000).toFixed(1)}s)</span>
             </div>
             <div className="flex gap-4 text-sm">
@@ -96,8 +97,8 @@ export default function DatabaseScan() {
           </div>
 
           {(result.findings || []).length === 0 ? (
-            <div className="bg-dark-800 border border-dark-700 rounded-xl p-8 text-center text-green-400">
-              ✅ No malware or suspicious content found in database
+            <div className="bg-dark-800 border border-dark-700 rounded-xl p-8 text-center text-green-400 flex items-center justify-center gap-2">
+              <IconCheckCircle size={18} /> No malware or suspicious content found in database
             </div>
           ) : (
             <div className="space-y-3">
@@ -115,7 +116,7 @@ export default function DatabaseScan() {
                       {f.matchedValue && (
                         <pre className="text-xs mt-2 bg-dark-950/50 rounded p-2 overflow-x-auto max-h-20 opacity-70">{f.matchedValue}</pre>
                       )}
-                      <p className="text-xs mt-2 opacity-80">💡 {f.recommendation}</p>
+                      <p className="text-xs mt-2 opacity-80 flex items-center gap-1"><IconLightbulb size={12} /> {f.recommendation}</p>
                     </div>
                   </div>
                 </div>

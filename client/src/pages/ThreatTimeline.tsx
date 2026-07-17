@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from '../i18n';
 import { getTimeline, getAttackChains, getRemediationPlan, getSiteStatus } from '../api/client';
 import type { TimelineEvent, AttackChain, RemediationPlan, SiteStatus } from '../types';
+import { IconLightbulb } from '../components/Icons';
 
 export default function ThreatTimeline() {
   const { t } = useTranslation();
@@ -149,7 +150,7 @@ export default function ThreatTimeline() {
                   ))}
                 </div>
                 <div className="text-xs text-dark-500 mb-2">Files: {chain.files.join(', ')}</div>
-                <p className="text-xs text-blue-400/80">💡 {chain.recommendation}</p>
+                <p className="text-xs text-blue-400/80 flex items-center gap-1"><IconLightbulb size={12} /> {chain.recommendation}</p>
               </div>
             ))
           )}

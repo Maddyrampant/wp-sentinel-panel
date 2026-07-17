@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { scanByPath, uploadAndScan } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useTranslation } from '../i18n';
+import { IconPackage, IconUpload } from '../components/Icons';
 
 export default function NewScan() {
   const { t } = useTranslation();
@@ -70,13 +71,13 @@ export default function NewScan() {
             <input ref={fileRef} type="file" accept=".zip" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
             {file ? (
               <div>
-                <div className="text-4xl mb-2">📦</div>
+                <div className="mb-2 flex justify-center text-blue-400"><IconPackage size={40} /></div>
                 <div className="text-white font-medium">{file.name}</div>
                 <div className="text-dark-500 text-sm mt-1">{(file.size / 1024).toFixed(1)} KB</div>
               </div>
             ) : (
               <div>
-                <div className="text-4xl mb-2">⬆️</div>
+                <div className="mb-2 flex justify-center text-dark-500"><IconUpload size={40} /></div>
                 <div className="text-gray-400">{t.newScan.dropzone}</div>
                 <div className="text-dark-500 text-sm mt-1">{t.newScan.maxSize}</div>
               </div>

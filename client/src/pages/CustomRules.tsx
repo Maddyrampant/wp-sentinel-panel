@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { getCustomRules, saveCustomRule, deleteCustomRule, importRules, exportRules } from '../api/client';
 import type { CustomRule } from '../types';
 import { useTranslation } from '../i18n';
+import { IconDoor, IconEyeOff, IconSpider, IconServer, IconRefresh, IconArrowUpRight, IconKey, IconZap, IconSecurity, IconLock, IconGlobe, IconCode, IconFileSearch, IconBug, IconImport, IconExport, IconCategory } from '../components/Icons';
 
 const sevColors: Record<string, string> = {
   critical: 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -17,11 +18,11 @@ const confColors: Record<string, string> = {
   low: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
-const categoryIcons: Record<string, string> = {
-  backdoor: '🚪', obfuscation: '🔐', webshell: '🕸️', wordpress: '🌐',
-  persistence: '♻️', redirect: '↗️', secrets: '🔑', injection: '💉',
-  integrity: '🛡️', security: '🔒', 'external-access': '🌐',
-  'code-pattern': '🔍', 'file-analysis': '📁', malware: '🦠',
+const categoryIcons: Record<string, React.ReactNode> = {
+  backdoor: <IconDoor size={16} />, obfuscation: <IconEyeOff size={16} />, webshell: <IconSpider size={16} />, wordpress: <IconServer size={16} />,
+  persistence: <IconRefresh size={16} />, redirect: <IconArrowUpRight size={16} />, secrets: <IconKey size={16} />, injection: <IconZap size={16} />,
+  integrity: <IconSecurity size={16} />, security: <IconLock size={16} />, 'external-access': <IconGlobe size={16} />,
+  'code-pattern': <IconCode size={16} />, 'file-analysis': <IconFileSearch size={16} />, malware: <IconBug size={16} />,
 };
 
 const emptyRule: Partial<CustomRule> = {
@@ -195,12 +196,12 @@ export default function CustomRules() {
         </div>
         <div className="flex gap-2">
           <button onClick={handleImport} disabled={importing}
-            className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">
-            📥 {t.customRules.importYaml || 'Import YAML'}
+            className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center gap-1.5">
+            <IconImport size={14} /> {t.customRules.importYaml || 'Import YAML'}
           </button>
           <button onClick={handleExport}
-            className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-            📤 {t.customRules.exportYaml || 'Export YAML'}
+            className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5">
+            <IconExport size={14} /> {t.customRules.exportYaml || 'Export YAML'}
           </button>
           <button onClick={() => { setEditing(emptyRule); setShowForm(true); setTestResult(null); }}
             className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -410,7 +411,7 @@ export default function CustomRules() {
         {categories.map(([cat, count]) => (
           <button key={cat} onClick={() => setCatFilter(cat)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${catFilter === cat ? 'bg-blue-600 text-white' : 'text-dark-500 hover:text-white hover:bg-dark-700'}`}>
-            <span>{categoryIcons[cat] || '📄'}</span>
+            <span className="flex-shrink-0">{categoryIcons[cat] || <IconCategory size={16} />}</span>
             <span>{cat}</span>
             <span className={`text-[10px] px-1 py-0.5 rounded-full ${catFilter === cat ? 'bg-blue-500/30' : 'bg-dark-700'}`}>{count}</span>
           </button>
@@ -431,11 +432,11 @@ export default function CustomRules() {
           <div key={rule.id} className="bg-dark-800 border border-dark-700 rounded-xl overflow-hidden">
             <div className="px-5 py-4 flex items-center gap-3 cursor-pointer hover:bg-dark-700/50 transition-colors"
               onClick={() => setExpandedId(expandedId === rule.id ? null : rule.id)}>
-              <span className="text-lg">{categoryIcons[rule.category] || '📄'}</span>
+              <span className="flex-shrink-0 text-dark-500">{categoryIcons[rule.category] || <IconCategory size={16} />}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-white font-medium">{rule.name}</span>
-                  {rule.isBuiltin && <span className="text-[10px] px-1.5 py-0.5 rounded bg-dark-600 text-dark-500">🔒 built-in</span>}
+                  {rule.isBuiltin && <span className="text-[10px] px-1.5 py-0.5 rounded bg-dark-600 text-dark-500 flex items-center gap-1"><IconLock size={10} /> built-in</span>}
                 </div>
                 <div className="text-dark-500 text-xs mt-0.5 truncate">{rule.description}</div>
               </div>
