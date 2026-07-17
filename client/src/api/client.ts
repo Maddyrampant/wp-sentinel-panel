@@ -167,3 +167,26 @@ export async function getSiteStatus(scanId: string): Promise<SiteStatus> {
   const { data } = await api.get(`/site-status/${scanId}`);
   return data;
 }
+
+// SSE Scan Stream
+export function streamScan(targetPath: string, onEvent: (event: { type: string; message?: string; percent?: number; scanId?: string; summary?: any }) => void): EventSource {
+  const reqId = crypto.randomUUID();
+  const es = new EventSource(`/api/scan-stream/${reqId}?path=${encodeURIComponent(targetPath)}`);
+
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      onEvent(data);
+      if (data.type === 'complete' || data.type === 'error') {
+        es.close();
+      }
+    } catch {}
+  };
+
+  es.onerror = () => {
+    onEvent({ type: 'error', message: 'Connection lost' });
+    es.close();
+  };
+
+  return es;
+}

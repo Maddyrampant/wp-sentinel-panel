@@ -4,6 +4,8 @@ import { CheckResult, Finding, Severity, CheckCategory, ScanSummary } from '../t
 import { v4 as uuidv4 } from 'uuid';
 import { getEnabledCustomRules, type CustomRule } from '../db/database';
 import { calculateRiskScore } from '../rules/scorer';
+import { extractAllPayloads } from './deobfuscator';
+import { scanSupplyChain } from './supply-chain';
 
 interface FileContext {
   path: string;
@@ -2512,6 +2514,311 @@ function runChecks(files: FileContext[]): CheckResult[] {
     results.push({ checkId: 'WP-018', checkName: 'WP SQL Injection', category: 'wordpress', severity: 'critical', description: 'Detects WordPress database queries with user-controlled input', findings });
   }
 
+  // ===== EVASION DETECTION =====
+
+  // EVD-001: User-Agent Cloaking
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/\$_SERVER\s*\[\s*['"]HTTP_USER_AGENT['"]\s*\]/i.test(file.lines[i]) && /if\s*\(|elseif\s*\(|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'User-Agent cloaking detected', 'Conditional execution based on HTTP_USER_AGENT — used to hide malicious behavior from security scanners.'));
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-001', checkName: 'UA Cloaking', category: 'evasion', severity: 'high', description: 'Detects conditional code execution based on User-Agent header', findings });
+  }
+
+  // EVD-002: Referer-based Activation
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/\$_SERVER\s*\[\s*['"]HTTP_REFERER['"]\s*\]/i.test(file.lines[i]) && /if\s*\(|elseif\s*\(|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Referer-based activation', 'Conditional execution based on HTTP_REFERER — used to activate malware only on specific referrer traffic.'));
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-002', checkName: 'Referer Activation', category: 'evasion', severity: 'high', description: 'Detects conditional code execution based on HTTP Referer header', findings });
+  }
+
+  // EVD-003: Time-based Activation
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/\btime\s*\(\s*\)/.test(file.lines[i]) && /if\s*\(|elseif\s*\(|>|\s<|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Time-based activation', 'Conditional execution based on time() — used to activate malware only during specific time windows.'));
+        }
+        if (/\bdate\s*\(\s*/.test(file.lines[i]) && /if\s*\(|elseif\s*\(|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Date-based activation', 'Conditional execution based on date() — used to schedule malicious behavior.'));
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-003', checkName: 'Time-based Activation', category: 'evasion', severity: 'medium', description: 'Detects conditional code execution based on time/date functions', findings });
+  }
+
+  // EVD-004: IP-based Cloaking
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/\$_SERVER\s*\[\s*['"]REMOTE_ADDR['"]\s*\]/i.test(file.lines[i]) && /if\s*\(|elseif\s*\(|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'IP-based cloaking (REMOTE_ADDR)', 'Conditional execution based on REMOTE_ADDR — used to hide malware from specific IP addresses.'));
+        }
+        if (/\$_SERVER\s*\[\s*['"]HTTP_X_FORWARDED_FOR['"]\s*\]/i.test(file.lines[i]) && /if\s*\(|elseif\s*\(|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'IP-based cloaking (X-Forwarded-For)', 'Conditional execution based on X-Forwarded-For — used to evade detection via proxy headers.'));
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-004', checkName: 'IP Cloaking', category: 'evasion', severity: 'high', description: 'Detects conditional code execution based on client IP address', findings });
+  }
+
+  // EVD-005: Cookie-based Triggers
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/\$_COOKIE\s*\[\s*['"][^'"]+['"]\s*\]/i.test(file.lines[i]) && /if\s*\(|elseif\s*\(|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Cookie-based trigger', 'Conditional execution based on cookie value — used as a secret trigger to activate hidden malware.'));
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-005', checkName: 'Cookie Trigger', category: 'evasion', severity: 'medium', description: 'Detects conditional code execution based on cookie values', findings });
+  }
+
+  // ===== SPAM INJECTION =====
+
+  // SPM-001: Hidden Text
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        const line = file.lines[i];
+        if (/display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0/i.test(line) && /style\s*=/i.test(line)) {
+          findings.push(f(file.relativePath, i + 1, 0, line.trim().substring(0, 150), 'Hidden text via CSS', 'CSS hidden text detected — commonly used for SEO spam injection.'));
+        }
+      }
+    }
+    results.push({ checkId: 'SPM-001', checkName: 'Hidden Text', category: 'spam', severity: 'medium', description: 'Detects CSS hidden text used for spam injection', findings });
+  }
+
+  // SPM-002: SEO Spam Links
+  {
+    const findings: Finding[] = [];
+    const spamKeywords = /viagra|cialis|casino|payday\s*loan|pharmacy|buy\s*now|free\s*money|gambling|poker|slots/i;
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        const line = file.lines[i];
+        if (/(echo|print)\s+.*<a\s/i.test(line) && /href\s*=\s*['"]https?:\/\//i.test(line) && spamKeywords.test(line)) {
+          findings.push(f(file.relativePath, i + 1, 0, line.trim().substring(0, 150), 'SEO spam link injection', 'PHP-generated spam links with suspicious anchor text — SEO spam injection.'));
+        }
+      }
+    }
+    results.push({ checkId: 'SPM-002', checkName: 'SEO Spam Links', category: 'spam', severity: 'medium', description: 'Detects PHP-generated spam links with suspicious anchor text', findings });
+  }
+
+  // SPM-003: Hidden iframes
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        const line = file.lines[i];
+        if (/<iframe[^>]*(width\s*=\s*['"]?0|height\s*=\s*['"]?0|display\s*:\s*none|visibility\s*:\s*hidden)/i.test(line)) {
+          findings.push(f(file.relativePath, i + 1, 0, line.trim().substring(0, 150), 'Hidden iframe detected', 'Hidden iframe (zero dimensions or display:none) — used for malicious content injection.'));
+        }
+      }
+    }
+    results.push({ checkId: 'SPM-003', checkName: 'Hidden Iframes', category: 'spam', severity: 'high', description: 'Detects hidden iframes used for malicious content injection', findings });
+  }
+
+  // SPM-004: Casino/Pharma Keywords
+  {
+    const findings: Finding[] = [];
+    const spamPattern = /\b(viagra|cialis|casino|slot\s*machine|blackjack|poker\s*online|payday\s*loan|pharmacy|buy\s*viagra|online\s*casino|gambling|betting\s*odds)\b/i;
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        const m = file.lines[i].match(spamPattern);
+        if (m) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), `Spam keyword: "${m[1]}"`, 'Casino/pharma spam keywords detected in file content — indicates spam injection.'));
+        }
+      }
+    }
+    results.push({ checkId: 'SPM-004', checkName: 'Spam Keywords', category: 'spam', severity: 'medium', description: 'Detects casino, pharmaceutical, and gambling spam keywords in content', findings });
+  }
+
+  // SPM-005: Silent Spam Injection via preg_replace /e
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/preg_replace\s*\(\s*['"`]\/.*\/e\s*['"`]/i.test(file.lines[i]) && /(echo|print|content|html|inject)/i.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'preg_replace /e for content injection', 'preg_replace with /e modifier used for silent content injection — code execution via deprecated regex.'));
+        }
+      }
+    }
+    results.push({ checkId: 'SPM-005', checkName: 'Silent Spam Inject', category: 'spam', severity: 'high', description: 'Detects preg_replace with /e modifier used for content injection', findings });
+  }
+
+  // ===== JS MALWARE =====
+
+  // JS-001: document.write injection
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          if (/document\.write\s*\(\s*(atob|decodeURIComponent|unescape|String\.fromCharCode)/i.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'document.write with decoded content', 'document.write combined with decoding function — injects obfuscated content into pages.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-001', checkName: 'DocWrite Inject', category: 'js-malware', severity: 'high', description: 'Detects document.write with decoded/obfuscated content injection', findings });
+  }
+
+  // JS-002: eval + atob combo
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          if (/\beval\s*\(\s*atob\s*\(/i.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'eval(atob()) detected', 'eval(atob(...)) executes base64-decoded JavaScript — classic malware obfuscation pattern.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-002', checkName: 'Eval Atob', category: 'js-malware', severity: 'critical', description: 'Detects eval(atob(...)) pattern used to execute obfuscated JavaScript', findings });
+  }
+
+  // JS-003: Crypto Mining Scripts
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          if (/\b(coinhive|coin-hive|cryptonight|coinimp|webmineploy|crypto-loot|minero\.cc|authedmine|coinlab)\b/i.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Crypto mining script', 'Cryptocurrency mining script detected — unauthorized browser-based mining.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-003', checkName: 'Crypto Miner', category: 'js-malware', severity: 'critical', description: 'Detects cryptocurrency mining scripts (CoinHive, CoinIMP, etc.)', findings });
+  }
+
+  // JS-004: Keylogger Patterns
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          if (/\b(onkeydown|onkeypress|addEventListener\s*\(\s*['"](keydown|keypress)['"])/i.test(file.lines[i]) && /(fetch|XMLHttpRequest|ajax|\.post\(|\.get\(|navigator\.sendBeacon|https?:\/\/)/i.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Keylogger pattern', 'Keystroke capture combined with network request — potential keylogger exfiltrating data.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-004', checkName: 'Keylogger', category: 'js-malware', severity: 'critical', description: 'Detects keylogger patterns that capture keystrokes and send to external URLs', findings });
+  }
+
+  // JS-005: Obfuscated JS redirects
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          if (/window\.location\s*[=.]\s*(atob|eval|decodeURIComponent|unescape|String\.fromCharCode|Buffer\.from)/i.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Obfuscated JS redirect', 'window.location assignment from decoded/evaluated value — obfuscated redirect to malicious site.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-005', checkName: 'JS Redirect', category: 'js-malware', severity: 'high', description: 'Detects obfuscated JavaScript redirects using base64/eval', findings });
+  }
+
+  // ===== INTEGRITY CHECKS =====
+
+  // INT-001: Modified wp-config.php
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-config/i.test(file.path)) {
+        const content = file.content;
+        const closingPhp = content.lastIndexOf('?>');
+        if (closingPhp > 0 && closingPhp < content.length - 1) {
+          const afterClosing = content.substring(closingPhp + 2).trim();
+          if (afterClosing.length > 0 && afterClosing !== '\n' && afterClosing !== '\r\n') {
+            findings.push(f(file.relativePath, 1, 0, afterClosing.substring(0, 150), 'Code after closing PHP tag', 'Non-standard code found after the closing ?> tag in wp-config.php — potential backdoor injection.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'INT-001', checkName: 'WP Config Modified', category: 'integrity', severity: 'critical', description: 'Detects non-standard code after the closing PHP tag in wp-config.php', findings });
+  }
+
+  // INT-002: Modified .htaccess
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      if (file.path.toLowerCase().endsWith('.htaccess')) {
+        const nonWpDirectives = /^\s*(RewriteRule|RewriteCond|Redirect|RedirectMatch|Alias|ScriptAlias|ProxyPass|SetEnvIf|Deny|Allow|Order|Require|ErrorDocument|Header|ModSecurity)/im;
+        const wpStandard = /^\s*(# BEGIN WordPress|# END WordPress|RewriteEngine On|RewriteBase|RewriteRule \^index\.php|RewriteRule \^\._|RewriteCond %\{REQUEST_FILENAME\}|RewriteCond %\{REQUEST_URI\})/im;
+        const lines = file.content.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          if (nonWpDirectives.test(lines[i]) && !wpStandard.test(lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, lines[i].trim().substring(0, 150), 'Non-WordPress .htaccess directive', 'Non-standard directive in .htaccess — may be used for redirection or access control bypass.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'INT-002', checkName: 'HTACCESS Modified', category: 'integrity', severity: 'high', description: 'Detects non-WordPress directives in .htaccess files', findings });
+  }
+
+  // INT-003: PHP Files in Uploads
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]uploads/i.test(file.relativePath)) {
+        findings.push(f(file.relativePath, 1, 0, `PHP in uploads: ${file.path}`, 'PHP file in uploads directory', 'PHP files in wp-content/uploads/ are suspicious — likely webshells or droppers.'));
+      }
+    }
+    results.push({ checkId: 'INT-003', checkName: 'PHP in Uploads', category: 'integrity', severity: 'critical', description: 'Detects .php files in wp-content/uploads/', findings });
+  }
+
+  // INT-004: Suspicious file timestamps
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      const now = Date.now();
+      const mtimeMs = file.mtime.getTime();
+      const ageDays = (now - mtimeMs) / (1000 * 60 * 60 * 24);
+      if (ageDays > 365 * 5) {
+        findings.push(f(file.relativePath, 1, 0, `Modified: ${file.mtime.toISOString()}`, 'Extremely old file timestamp', `File last modified ${Math.floor(ageDays)} days ago — may indicate a stale or abandoned file that could be exploited.`));
+      }
+    }
+    results.push({ checkId: 'INT-004', checkName: 'Old Timestamps', category: 'integrity', severity: 'low', description: 'Detects files with extremely old modification timestamps', findings });
+  }
+
+  // INT-005: Core file modification
+  {
+    const findings: Finding[] = [];
+    const corePatterns = [/\beval\s*\(/i, /\bexec\s*\(/i, /\bsystem\s*\(/i, /\bpassthru\s*\(/i, /\bshell_exec\s*\(/i, /\bbase64_decode\s*\(/i, /\bfile_get_contents\s*\(\s*['"]https?:\/\//i, /\bfile_put_contents\s*\(/i, /\bcurl_exec\s*\(/i];
+    for (const file of phpFiles) {
+      if (/wp-includes|wp-admin/i.test(file.relativePath)) {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of corePatterns) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Suspicious pattern in core file', 'Dangerous function found in WordPress core file — core files should not contain these patterns.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'INT-005', checkName: 'Core Modified', category: 'integrity', severity: 'critical', description: 'Detects suspicious patterns in WordPress core files (wp-includes, wp-admin)', findings });
+  }
+
   return results;
 }
 
@@ -2521,6 +2828,44 @@ export function runScan(targetPath: string, sourceType: 'path' | 'upload' = 'pat
   const files = readDir(targetPath, targetPath, []);
   const phpFiles = files.filter(f => f.isPhp);
   const results = runChecks(files);
+
+  // Run deobfuscation analysis
+  try {
+    const allDeobResults: { file: string; payload: ReturnType<typeof extractAllPayloads>[number] }[] = [];
+    for (const file of files) {
+      const payloads = extractAllPayloads(file.content);
+      for (const payload of payloads) {
+        allDeobResults.push({ file: file.relativePath, payload });
+      }
+    }
+    if (allDeobResults.length > 0) {
+      const findings: Finding[] = allDeobResults.map(d => ({
+        file: d.file,
+        line: 0,
+        column: 0,
+        code: d.payload.decoded.substring(0, 150),
+        message: `Deobfuscated payload found via ${d.payload.method} (depth: ${d.payload.depth})`,
+        details: `Decoded content contains ${d.payload.urls.length} URLs, ${d.payload.domains.length} domains, ${d.payload.suspiciousKeywords.length} suspicious keywords`,
+      }));
+      results.push({ checkId: 'OBF-DEOB', checkName: 'Deobfuscated Payloads', category: 'obfuscation', severity: 'high', description: 'Payloads decoded from obfuscated code', findings });
+    }
+  } catch {}
+
+  // Run supply chain analysis
+  try {
+    const scResults = scanSupplyChain(targetPath);
+    if (scResults.length > 0) {
+      const findings: Finding[] = scResults.map(sc => ({
+        file: sc.file,
+        line: sc.line || 0,
+        column: 0,
+        code: sc.matchedText?.substring(0, 150) || '',
+        message: sc.message,
+        details: sc.recommendation,
+      }));
+      results.push({ checkId: 'SUP-001', checkName: 'Supply Chain Analysis', category: 'supply-chain', severity: scResults[0]?.severity || 'medium', description: 'Dependency and vendor analysis', findings });
+    }
+  } catch {}
 
   // Run custom rules (enhanced: multi-pattern, path patterns, target files, scoring)
   const customRules = getEnabledCustomRules();
@@ -2631,7 +2976,7 @@ export function runScan(targetPath: string, sourceType: 'path' | 'upload' = 'pat
   }
 
   const bySeverity: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-  const byCategory: Record<CheckCategory | string, number> = { obfuscation: 0, 'external-access': 0, security: 0, 'code-pattern': 0, 'file-analysis': 0, wordpress: 0 };
+  const byCategory: Record<CheckCategory | string, number> = { obfuscation: 0, 'external-access': 0, security: 0, 'code-pattern': 0, 'file-analysis': 0, wordpress: 0, evasion: 0, 'supply-chain': 0, spam: 0, 'js-malware': 0, integrity: 0 };
 
   for (const r of results) {
     bySeverity[r.severity] += r.findings.length;

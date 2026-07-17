@@ -28,8 +28,8 @@ router.post('/scan', (req: Request, res: Response) => {
     saveScan(summary);
 
     return res.json(summary);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    return res.status(500).json({ error: (err as Error).message });
   }
 });
 
@@ -48,8 +48,8 @@ router.post('/upload', upload.single('file'), (req: Request, res: Response) => {
     cleanupTemp(extractedDir);
 
     return res.json(summary);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    return res.status(500).json({ error: (err as Error).message });
   }
 });
 
@@ -110,8 +110,8 @@ router.post('/compare', (req: Request, res: Response) => {
     };
 
     return res.json(comparison);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    return res.status(500).json({ error: (err as Error).message });
   }
 });
 
@@ -184,8 +184,8 @@ router.get('/report/:id/:format', async (req: Request, res: Response) => {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="wp-sentinel-${scan.id}.pdf"`);
       return res.send(pdfBuffer);
-    } catch (err: any) {
-      return res.status(500).json({ error: 'Failed to generate PDF: ' + err.message });
+    } catch (err: unknown) {
+      return res.status(500).json({ error: 'Failed to generate PDF: ' + (err as Error).message });
     }
   }
 
@@ -240,6 +240,52 @@ router.get('/site-status/:scanId', (req: Request, res: Response) => {
   const chains = detectAttackChains(allFindings);
   const status = calculateSiteStatus(scan, chains);
   res.json(status);
+});
+
+// GET /api/scan-stream/:id - SSE scan progress stream
+router.get('/scan-stream/:reqId', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const reqId = req.params.reqId;
+
+  // Send initial event
+  res.write(`data: ${JSON.stringify({ type: 'start', message: 'Scan starting...' })}\n\n`);
+
+  // Run scan in next tick so headers are sent first
+  setImmediate(() => {
+    try {
+      const targetPath = req.query.path as string;
+      if (!targetPath || !fs.existsSync(targetPath)) {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Invalid path' })}\n\n`);
+        res.end();
+        return;
+      }
+
+      res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Reading files...', percent: 10 })}\n\n`);
+
+      const summary = runScan(targetPath, 'path');
+
+      res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Analyzing code...', percent: 60 })}\n\n`);
+
+      saveScan(summary);
+
+      res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Saving results...', percent: 90 })}\n\n`);
+
+      res.write(`data: ${JSON.stringify({ type: 'complete', scanId: summary.id, summary })}\n\n`);
+      res.end();
+    } catch (err: unknown) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: (err as Error).message })}\n\n`);
+      res.end();
+    }
+  });
+
+  req.on('close', () => {
+    res.end();
+  });
 });
 
 export default router;

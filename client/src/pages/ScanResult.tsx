@@ -4,7 +4,7 @@ import { getScan, getReportUrl } from '../api/client';
 import type { ScanSummary, Severity, CheckCategory, CheckResult, Finding } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useTranslation } from '../i18n';
-import { IconDashboard, IconEyeOff, IconGlobe, IconSecurity, IconCode, IconFileSearch, IconServer, IconFileText, IconDownload, IconLightbulb } from '../components/Icons';
+import { IconDashboard, IconEyeOff, IconGlobe, IconSecurity, IconCode, IconFileSearch, IconServer, IconFileText, IconDownload, IconLightbulb, IconRadar, IconPackage, IconBug, IconZap, IconShieldAlert } from '../components/Icons';
 
 const severityOrder: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const sevColors: Record<Severity, string> = { critical: 'text-red-400', high: 'text-orange-400', medium: 'text-yellow-400', low: 'text-cyan-400', info: 'text-gray-400' };
@@ -50,6 +50,11 @@ export default function ScanResult() {
     { id: 'code', labelKey: t.scanResult.codePatterns, icon: <IconCode size={16} />, categories: ['code-pattern'] },
     { id: 'files', labelKey: t.scanResult.fileAnalysis, icon: <IconFileSearch size={16} />, categories: ['file-analysis'] },
     { id: 'wordpress', labelKey: t.scanResult.wordpress, icon: <IconServer size={16} />, categories: ['wordpress'] },
+    { id: 'evasion', labelKey: t.scanResult.evasion, icon: <IconRadar size={16} />, categories: ['evasion'] },
+    { id: 'supply-chain', labelKey: t.scanResult.supplyChain, icon: <IconPackage size={16} />, categories: ['supply-chain'] },
+    { id: 'spam', labelKey: t.scanResult.spam, icon: <IconBug size={16} />, categories: ['spam'] },
+    { id: 'js-malware', labelKey: t.scanResult.jsMalware, icon: <IconZap size={16} />, categories: ['js-malware'] },
+    { id: 'integrity', labelKey: t.scanResult.integrity, icon: <IconShieldAlert size={16} />, categories: ['integrity'] },
   ];
 
   useEffect(() => {
@@ -147,7 +152,7 @@ export default function ScanResult() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-dark-800 border border-dark-700 rounded-xl p-1 mb-6 overflow-x-auto">
+      <div className="flex gap-1 bg-dark-800 border border-dark-700 rounded-xl p-1 mb-6 overflow-x-auto pb-2">
         {TABS.map(tab => {
           const count = tab.categories.length > 0
             ? scan.results.filter(r => tab.categories.includes(r.category)).reduce((s, r) => s + r.findings.length, 0)
@@ -213,6 +218,11 @@ function OverviewTab({ scan, riskScore }: { scan: ScanSummary; riskScore: number
     'code-pattern': t.scanResult.catCodePattern,
     'file-analysis': t.scanResult.catFileAnalysis,
     'wordpress': t.scanResult.catWordPress,
+    'evasion': t.scanResult.catEvasion,
+    'supply-chain': t.scanResult.catSupplyChain,
+    'spam': t.scanResult.catSpam,
+    'js-malware': t.scanResult.catJsMalware,
+    'integrity': t.scanResult.catIntegrity,
   };
 
   return (
@@ -239,8 +249,8 @@ function OverviewTab({ scan, riskScore }: { scan: ScanSummary; riskScore: number
         <div className="space-y-3">
           {catEntries.map(([cat, count]) => {
             const pct = (count / maxCat) * 100;
-            const catColors: Record<string, string> = { security: 'bg-red-500', obfuscation: 'bg-purple-500', 'external-access': 'bg-cyan-500', 'code-pattern': 'bg-yellow-500', 'file-analysis': 'bg-green-500', wordpress: 'bg-blue-500' };
-            const catIcons: Record<string, React.ReactNode> = { security: <IconSecurity size={18} />, obfuscation: <IconEyeOff size={18} />, 'external-access': <IconGlobe size={18} />, 'code-pattern': <IconCode size={18} />, 'file-analysis': <IconFileSearch size={18} />, wordpress: <IconServer size={18} /> };
+            const catColors: Record<string, string> = { security: 'bg-red-500', obfuscation: 'bg-purple-500', 'external-access': 'bg-cyan-500', 'code-pattern': 'bg-yellow-500', 'file-analysis': 'bg-green-500', wordpress: 'bg-blue-500', evasion: 'bg-amber-500', 'supply-chain': 'bg-pink-500', spam: 'bg-lime-500', 'js-malware': 'bg-rose-500', integrity: 'bg-indigo-500' };
+            const catIcons: Record<string, React.ReactNode> = { security: <IconSecurity size={18} />, obfuscation: <IconEyeOff size={18} />, 'external-access': <IconGlobe size={18} />, 'code-pattern': <IconCode size={18} />, 'file-analysis': <IconFileSearch size={18} />, wordpress: <IconServer size={18} />, evasion: <IconRadar size={18} />, 'supply-chain': <IconPackage size={18} />, spam: <IconBug size={18} />, 'js-malware': <IconZap size={18} />, integrity: <IconShieldAlert size={18} /> };
             return (
               <div key={cat} className="flex items-center gap-4">
                 <span className="w-8 text-center flex-shrink-0 text-dark-500">{catIcons[cat] || <IconFileSearch size={18} />}</span>

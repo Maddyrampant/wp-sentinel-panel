@@ -405,3 +405,33 @@ export function IconCategory({ className, size }: IconProps) {
     </Svg>
   );
 }
+
+export function IconShieldCheck({ className, size }: IconProps) {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M12 2l7 4v5c0 5.25-3.5 8.75-7 10-3.5-1.25-7-4.75-7-10V6l7-4z" />
+      <polyline points="9,12 11,14 15,10" />
+    </Svg>
+  );
+}
+
+export function IconAlertTriangle({ className, size }: IconProps) {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </Svg>
+  );
+}
+
+export function IconTrash({ className, size }: IconProps) {
+  return (
+    <Svg className={className} size={size}>
+      <polyline points="3,6 5,6 21,6" />
+      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </Svg>
+  );
+}

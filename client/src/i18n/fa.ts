@@ -15,6 +15,7 @@ const fa = {
     dbScan: 'اسکن دیتابیس',
     threatIntel: 'تحلیل تهدید',
     quarantine: 'قرنطینه',
+    falsePositives: 'مثبت‌های کاذب',
   },
 
   // Language
@@ -128,6 +129,16 @@ const fa = {
     catCodePattern: 'الگوی کد',
     catFileAnalysis: 'تحلیل فایل',
     catWordPress: 'وردپرس',
+    evasion: 'تشخیص فرار',
+    supplyChain: 'زنجیره تأمین',
+    spam: 'تزریق اسپم',
+    jsMalware: 'بدافزار JS',
+    integrity: 'یکپارچگی',
+    catEvasion: 'تشخیص فرار',
+    catSupplyChain: 'زنجیره تأمین',
+    catSpam: 'تزریق اسپم',
+    catJsMalware: 'بدافزار JS',
+    catIntegrity: 'یکپارچگی',
   },
 
   // History
@@ -280,10 +291,19 @@ const fa = {
     severity: 'شدت',
   },
 
+  // False Positives
+  falsePositives: {
+    title: 'مثبت‌های کاذب',
+    subtitle: 'مدیریت ردیف‌های یادگرفته‌شده',
+    deleteConfirm: 'این مثبت کاذب حذف شود؟',
+    noFps: 'هنوز مثبت کاذبی ثبت نشده.',
+  },
+
   // Common
   common: {
     line: 'خط',
     criticalCount: 'بحرانی',
+    loading: 'در حال بارگذاری...',
   },
 };
 

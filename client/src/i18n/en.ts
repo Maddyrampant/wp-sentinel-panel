@@ -15,6 +15,7 @@ const en = {
     dbScan: 'DB Scan',
     threatIntel: 'Threat Intel',
     quarantine: 'Quarantine',
+    falsePositives: 'False Positives',
   },
 
   // Language
@@ -128,6 +129,16 @@ const en = {
     catCodePattern: 'Code Pattern',
     catFileAnalysis: 'File Analysis',
     catWordPress: 'WordPress',
+    evasion: 'Evasion Detection',
+    supplyChain: 'Supply Chain',
+    spam: 'Spam Injection',
+    jsMalware: 'JS Malware',
+    integrity: 'Integrity',
+    catEvasion: 'Evasion Detection',
+    catSupplyChain: 'Supply Chain',
+    catSpam: 'Spam Injection',
+    catJsMalware: 'JS Malware',
+    catIntegrity: 'Integrity',
   },
 
   // History
@@ -280,10 +291,19 @@ const en = {
     severity: 'Severity',
   },
 
+  // False Positives
+  falsePositives: {
+    title: 'False Positives',
+    subtitle: 'Manage learned false positive exclusions',
+    deleteConfirm: 'Remove this false positive?',
+    noFps: 'No false positives recorded yet.',
+  },
+
   // Common
   common: {
     line: 'Line',
     criticalCount: 'critical',
+    loading: 'Loading...',
   },
 };
 

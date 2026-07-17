@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from '../i18n';
-import { IconDashboard, IconSearch, IconHistory, IconCompare, IconTarget, IconPalette, IconDatabase, IconRadar, IconLock, IconSecurity, IconLangEn, IconLangFa } from './Icons';
+import { IconDashboard, IconSearch, IconHistory, IconCompare, IconTarget, IconPalette, IconDatabase, IconRadar, IconLock, IconSecurity, IconLangEn, IconLangFa, IconShieldCheck } from './Icons';
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t, lang, setLang, dir } = useTranslation();
@@ -15,6 +15,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { to: '/db-scan', icon: <IconDatabase size={18} />, label: t.nav.dbScan },
     { to: '/threat-intel', icon: <IconRadar size={18} />, label: t.nav.threatIntel },
     { to: '/quarantine', icon: <IconLock size={18} />, label: t.nav.quarantine },
+    { to: '/false-positives', icon: <IconShieldCheck size={18} />, label: t.nav.falsePositives },
   ];
 
   return (

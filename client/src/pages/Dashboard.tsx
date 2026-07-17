@@ -16,10 +16,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getStats().then(setStats).catch(() => {});
-    getHistory(5).then(d => setRecent(Array.isArray(d) ? d : [])).catch(() => {});
-    getTrend().then(d => setTrend(Array.isArray(d) ? d : [])).catch(() => {});
-    setLoading(false);
+    Promise.all([
+      getStats().then(setStats).catch(() => {}),
+      getHistory(5).then(d => setRecent(Array.isArray(d) ? d : [])).catch(() => {}),
+      getTrend().then(d => setTrend(Array.isArray(d) ? d : [])).catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="text-center py-20 text-dark-500">{t.dashboard.loading}</div>;
