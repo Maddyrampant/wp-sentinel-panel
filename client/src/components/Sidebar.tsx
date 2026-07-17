@@ -18,7 +18,6 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { to: '/false-positives', icon: <IconShieldCheck size={18} />, label: t.nav.falsePositives },
     { to: '/plugin-intel', icon: <IconPackage size={18} />, label: t.nav.pluginIntel },
     { to: '/hardening', icon: <IconShieldCheck size={18} />, label: t.nav.hardening },
-    { to: '/mitre/:id', icon: <IconTarget size={18} />, label: 'MITRE ATT&CK' },
   ];
 
   return (

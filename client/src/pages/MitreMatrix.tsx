@@ -53,7 +53,7 @@ export default function MitreMatrix() {
 
   if (loading) return <div className="text-center py-20 text-dark-500">Loading MITRE ATT&CK mapping...</div>;
   if (error) return <div className="text-center py-20 text-red-400">{error}</div>;
-  if (!result || result.mappings.length === 0) {
+  if (!result || !result.mappings || result.mappings.length === 0) {
     return (
       <div className="text-center py-20">
         <IconTarget size={48} className="text-dark-600 mx-auto mb-4" />
@@ -86,7 +86,7 @@ export default function MitreMatrix() {
           <div className="text-xs text-dark-500 mt-1">ATT&CK Coverage</div>
         </div>
         <div className="bg-dark-800 border border-dark-700 rounded-xl p-5 text-center">
-          <div className="text-3xl font-bold text-dark-500">{result.topTactics.length}</div>
+          <div className="text-3xl font-bold text-dark-500">{result.topTactics?.length || 0}</div>
           <div className="text-xs text-dark-500 mt-1">Tactics Impacted</div>
         </div>
       </div>
@@ -94,7 +94,7 @@ export default function MitreMatrix() {
       <div className="bg-dark-800 border border-dark-700 rounded-xl p-6 mb-8">
         <h3 className="text-sm font-semibold text-dark-500 mb-4">Top Tactics</h3>
         <div className="flex flex-wrap gap-3">
-          {result.topTactics.map(t => (
+          {(result.topTactics || []).map(t => (
             <div key={t.tactic} className="flex items-center gap-2 bg-dark-900 rounded-lg px-4 py-2">
               <div className={`w-3 h-3 rounded-full ${TACTIC_COLORS[t.tactic] || 'bg-gray-500'}`}></div>
               <span className="text-sm text-white">{t.tactic}</span>
@@ -105,7 +105,7 @@ export default function MitreMatrix() {
       </div>
 
       <div className="space-y-3">
-        {result.mappings.sort((a, b) => b.findingCount - a.findingCount).map(m => (
+        {(result.mappings || []).sort((a, b) => b.findingCount - a.findingCount).map(m => (
           <div key={m.techniqueId} className="bg-dark-800 border border-dark-700 rounded-xl p-5">
             <div className="flex items-center gap-3 mb-2">
               <div className={`w-3 h-3 rounded-full ${TACTIC_COLORS[m.tactic] || 'bg-gray-500'}`}></div>

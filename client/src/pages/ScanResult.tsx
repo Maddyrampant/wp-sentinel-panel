@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { getScan, getReportUrl } from '../api/client';
 import type { ScanSummary, Severity, CheckCategory, CheckResult, Finding } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useTranslation } from '../i18n';
-import { IconDashboard, IconEyeOff, IconGlobe, IconSecurity, IconCode, IconFileSearch, IconServer, IconFileText, IconDownload, IconLightbulb, IconRadar, IconPackage, IconBug, IconZap, IconShieldAlert, IconShieldCheck, IconDatabase } from '../components/Icons';
+import { IconDashboard, IconEyeOff, IconGlobe, IconSecurity, IconCode, IconFileSearch, IconServer, IconFileText, IconDownload, IconLightbulb, IconRadar, IconPackage, IconBug, IconZap, IconShieldAlert, IconShieldCheck, IconDatabase, IconTarget } from '../components/Icons';
 
 const severityOrder: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const sevColors: Record<Severity, string> = { critical: 'text-red-400', high: 'text-orange-400', medium: 'text-yellow-400', low: 'text-cyan-400', info: 'text-gray-400' };
@@ -135,6 +135,7 @@ export default function ScanResult() {
           <a href={getReportUrl(scan.id, 'html')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5"><IconDownload size={14} /> HTML</a>
           <a href={getReportUrl(scan.id, 'json')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5"><IconDownload size={14} /> JSON</a>
           <a href={getReportUrl(scan.id, 'csv')} className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5"><IconDownload size={14} /> CSV</a>
+          <Link to={`/mitre/${scan.id}`} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors font-medium flex items-center gap-1.5"><IconTarget size={14} /> MITRE</Link>
         </div>
       </div>
 
