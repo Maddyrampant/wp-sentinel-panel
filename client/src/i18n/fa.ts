@@ -16,6 +16,8 @@ const fa = {
     threatIntel: 'تحلیل تهدید',
     quarantine: 'قرنطینه',
     falsePositives: 'مثبت‌های کاذب',
+    pluginIntel: 'هوش پلاگین',
+    hardening: 'سخت‌سازی',
   },
 
   // Language
@@ -139,6 +141,12 @@ const fa = {
     catSpam: 'تزریق اسپم',
     catJsMalware: 'بدافزار JS',
     catIntegrity: 'یکپارچگی',
+    plugin: 'امنیت پلاگین',
+    hardening: 'سخت‌سازی',
+    database: 'تحلیل عمیق دیتابیس',
+    catPlugin: 'امنیت پلاگین',
+    catHardening: 'سخت‌سازی',
+    catDatabase: 'تحلیل عمیق دیتابیس',
   },
 
   // History
@@ -297,6 +305,23 @@ const fa = {
     subtitle: 'مدیریت ردیف‌های یادگرفته‌شده',
     deleteConfirm: 'این مثبت کاذب حذف شود؟',
     noFps: 'هنوز مثبت کاذبی ثبت نشده.',
+  },
+
+  // Plugin Intelligence
+  pluginIntel: {
+    title: 'هوش امنیتی پلاگین',
+    subtitle: 'تحلیل پلاگین‌های وردپرس برای بدافزار، درب‌پشتی و آسیب‌پذیری',
+    scanButton: 'اسکن پلاگین‌ها',
+    scanning: 'در حال اسکن پلاگین‌ها...',
+    pluginsPath: 'مسیر دایرکتوری پلاگین‌ها',
+    pathPlaceholder: '/var/www/html/wp-content/plugins',
+    singlePlugin: 'نام پلاگین (اختیاری)',
+  },
+
+  // Hardening
+  hardening: {
+    title: 'بررسی سخت‌سازی وردپرس',
+    subtitle: 'بررسی نصب وردپرس بر اساس بهترین شیوه‌های امنیتی',
   },
 
   // Common

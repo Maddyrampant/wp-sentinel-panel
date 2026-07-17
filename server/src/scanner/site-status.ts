@@ -52,7 +52,24 @@ export function calculateSiteStatus(
     hasFileWrite: allFindings.some(f => /file_put_contents|fwrite|move_uploaded/i.test(f.code)),
     hasEvalBase64: allFindings.some(f => /eval\s*\(\s*base64_decode/i.test(f.code)),
     hasRemoteCodeExecution: allFindings.some(f => /exec\s*\(|system\s*\(|passthru|shell_exec|proc_open/i.test(f.code)),
+    hasPluginBackdoor: false,
+    hasSSTI: false,
+    hasPolyglot: false,
+    hasWPCronAbuse: false,
+    hasRESTAPIExposure: false,
   };
+
+  const hasPluginBackdoor = allFindings.some(f => f.message.toLowerCase().includes('plugin') && (f.message.toLowerCase().includes('backdoor') || f.message.toLowerCase().includes('malware')));
+  const hasSSTI = allFindings.some(f => f.message.toLowerCase().includes('ssti') || f.message.toLowerCase().includes('template injection'));
+  const hasPolyglot = allFindings.some(f => f.message.toLowerCase().includes('polyglot') || f.message.toLowerCase().includes('double extension'));
+  const hasWPCronAbuse = allFindings.some(f => f.message.toLowerCase().includes('cron') && (f.message.toLowerCase().includes('malicious') || f.message.toLowerCase().includes('suspicious')));
+  const hasRESTAPIExposure = allFindings.some(f => f.message.toLowerCase().includes('rest api') || f.message.toLowerCase().includes('rest_route'));
+
+  details.hasPluginBackdoor = hasPluginBackdoor;
+  details.hasSSTI = hasSSTI;
+  details.hasPolyglot = hasPolyglot;
+  details.hasWPCronAbuse = hasWPCronAbuse;
+  details.hasRESTAPIExposure = hasRESTAPIExposure;
 
   let score = 0;
   const reasons: string[] = [];
@@ -72,6 +89,11 @@ export function calculateSiteStatus(
   if (details.hasObfuscation) { score += 10; reasons.push('Obfuscated code detected'); }
   if (details.hasEval) { score += 8; reasons.push('eval() usage detected'); }
   if (details.hasSpam) { score += 8; reasons.push('SEO spam injection detected'); }
+  if (hasPluginBackdoor) { score += 20; }
+  if (hasSSTI) { score += 25; }
+  if (hasPolyglot) { score += 15; }
+  if (hasWPCronAbuse) { score += 10; }
+  if (hasRESTAPIExposure) { score += 5; }
 
   score = Math.min(score, 100);
 

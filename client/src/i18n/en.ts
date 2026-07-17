@@ -16,6 +16,8 @@ const en = {
     threatIntel: 'Threat Intel',
     quarantine: 'Quarantine',
     falsePositives: 'False Positives',
+    pluginIntel: 'Plugin Intel',
+    hardening: 'Hardening',
   },
 
   // Language
@@ -139,6 +141,12 @@ const en = {
     catSpam: 'Spam Injection',
     catJsMalware: 'JS Malware',
     catIntegrity: 'Integrity',
+    plugin: 'Plugin Security',
+    hardening: 'Hardening',
+    database: 'Database Deep',
+    catPlugin: 'Plugin Security',
+    catHardening: 'Hardening',
+    catDatabase: 'Database Deep',
   },
 
   // History
@@ -297,6 +305,23 @@ const en = {
     subtitle: 'Manage learned false positive exclusions',
     deleteConfirm: 'Remove this false positive?',
     noFps: 'No false positives recorded yet.',
+  },
+
+  // Plugin Intelligence
+  pluginIntel: {
+    title: 'Plugin Security Intelligence',
+    subtitle: 'Analyze WordPress plugins for malware, backdoors, and vulnerabilities',
+    scanButton: 'Scan Plugins',
+    scanning: 'Scanning plugins...',
+    pluginsPath: 'Plugins Directory Path',
+    pathPlaceholder: '/var/www/html/wp-content/plugins',
+    singlePlugin: 'Single Plugin Name (optional)',
+  },
+
+  // Hardening
+  hardening: {
+    title: 'WordPress Hardening Check',
+    subtitle: 'Verify your WordPress installation against security best practices',
   },
 
   // Common

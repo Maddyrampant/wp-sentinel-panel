@@ -10,7 +10,10 @@ export type CheckCategory =
   | 'supply-chain'
   | 'spam'
   | 'js-malware'
-  | 'integrity';
+  | 'integrity'
+  | 'plugin'
+  | 'hardening'
+  | 'database';
 
 export interface Finding {
   file: string;
@@ -322,4 +325,130 @@ export interface DomainInventoryEntry {
   isSuspicious: boolean;
   reputationScore: number;
   flags: string[];
+}
+
+// Hardening Check types
+export interface HardeningCheckItem {
+  id: string;
+  name: string;
+  category: string;
+  status: 'pass' | 'fail' | 'warning' | 'info';
+  severity: Severity;
+  message: string;
+  details: string;
+  recommendation: string;
+  reference?: string;
+}
+
+export interface HardeningResult {
+  targetPath: string;
+  totalChecks: number;
+  passed: number;
+  failed: number;
+  warnings: number;
+  score: number;
+  checks: HardeningCheckItem[];
+  scanDate: string;
+  duration: number;
+}
+
+// Plugin Intel types
+export interface PluginFinding {
+  id: string;
+  file: string;
+  line: number;
+  column?: number;
+  type: string;
+  severity: Severity;
+  message: string;
+  matchedText: string;
+  confidence: number;
+  recommendation?: string;
+}
+
+export interface PluginExternalDomain {
+  domain: string;
+  urls: string[];
+  files: Array<{ file: string; line: number }>;
+  isSuspicious: boolean;
+}
+
+export interface PluginBase64Decoded {
+  file: string;
+  line: number;
+  decoded: string;
+  extractedUrls: string[];
+  extractedDomains: string[];
+}
+
+export interface PluginMetadata {
+  name?: string;
+  version?: string;
+  author?: string;
+  description?: string;
+  textDomain?: string;
+  requiresPhp?: string;
+  requiresWp?: string;
+  testedUpTo?: string;
+  license?: string;
+}
+
+export interface PluginIntelResult {
+  pluginName: string;
+  pluginPath: string;
+  metadata?: PluginMetadata;
+  externalDomains: PluginExternalDomain[];
+  nulledIndicators: PluginFinding[];
+  malwarePatterns: PluginFinding[];
+  base64Decoded: PluginBase64Decoded[];
+  vulnerabilityPatterns: PluginFinding[];
+  riskScore: number;
+  riskLevel: string;
+  summary: {
+    totalFindings: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+}
+
+// Checksum Verify types
+export interface ChecksumFile {
+  file: string;
+  md5: string;
+  status: 'match' | 'mismatch' | 'missing_local' | 'missing_remote' | 'extra_local';
+  severity: Severity;
+}
+
+export interface ChecksumResult {
+  id: string;
+  targetPath: string;
+  wpVersion?: string;
+  totalFiles: number;
+  matched: number;
+  mismatched: number;
+  extraLocal: number;
+  missingLocal: number;
+  files: ChecksumFile[];
+  scanDate: string;
+  duration: number;
+}
+
+// MITRE ATT&CK types
+export interface MitreMapping {
+  techniqueId: string;
+  techniqueName: string;
+  tactic: string;
+  findingCount: number;
+  files: string[];
+  severity: string;
+  confidence: number;
+}
+
+export interface MitreResult {
+  mappings: MitreMapping[];
+  coverageScore: number;
+  topTactics: Array<{ tactic: string; count: number }>;
+  totalMappedFindings: number;
 }

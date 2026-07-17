@@ -168,6 +168,35 @@ export async function getSiteStatus(scanId: string): Promise<SiteStatus> {
   return data;
 }
 
+// Plugin Intel API
+export async function pluginScan(pluginsPath: string, pluginName?: string): Promise<any> {
+  const { data } = await api.post('/plugin-scan', { pluginsPath, pluginName });
+  return data;
+}
+
+export async function getPluginScanHistory(): Promise<any[]> {
+  // Placeholder for future plugin scan history
+  return [];
+}
+
+// Hardening Check API
+export async function hardeningScan(targetPath: string): Promise<any> {
+  const { data } = await api.post('/hardening-scan', { targetPath });
+  return data;
+}
+
+// Checksum Verify API
+export async function checksumVerify(targetPath: string): Promise<any> {
+  const { data } = await api.post('/checksum-verify', { targetPath });
+  return data;
+}
+
+// MITRE ATT&CK API
+export async function getMitreMapping(scanId: string): Promise<any> {
+  const { data } = await api.get(`/mitre/${scanId}`);
+  return data;
+}
+
 // SSE Scan Stream
 export function streamScan(targetPath: string, onEvent: (event: { type: string; message?: string; percent?: number; scanId?: string; summary?: any }) => void): EventSource {
   const reqId = crypto.randomUUID();

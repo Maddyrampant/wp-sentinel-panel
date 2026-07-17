@@ -11,7 +11,10 @@ export type CheckCategory =
   | 'supply-chain'
   | 'spam'
   | 'js-malware'
-  | 'integrity';
+  | 'integrity'
+  | 'plugin'
+  | 'hardening'
+  | 'database';
 
 export interface Finding {
   file: string;

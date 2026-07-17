@@ -71,8 +71,8 @@ const DYNAMIC_DNS_PATTERNS = [
 const KNOWN_BRANDS = [
   'wordpress', 'woocommerce', 'google', 'facebook', 'twitter', 'github',
   'microsoft', 'amazon', 'apple', 'xtemos', 'envato', 'themeforest',
-  'codecanyon', 'elementor', 'divi', 'avada', 'flavor', 'flavor',
-  'woodmart', 'flavor', 'flavor', 'flavor',
+  'codecanyon', 'elementor', 'divi', 'avada', 'woodmart', 'flavor',
+  'yoast', 'elementor', 'acf',
 ];
 
 function levenshteinDistance(a: string, b: string): number {
@@ -164,6 +164,20 @@ export function checkDomainReputation(domain: string): DomainReputation {
   }
 
   score = Math.max(0, Math.min(100, score));
+
+  // Pattern-based DNS-like checks
+  if (domain.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+    flags.push('ip-as-domain');
+    score -= 40;
+  }
+  
+  // Known malware domain patterns
+  if (domain.match(/\.(tk|ml|ga|cf|gq)$/i) && !isDomainSafe(domain)) {
+    if (!flags.includes('suspicious-tld')) {
+      flags.push('suspicious-tld');
+      score -= 30;
+    }
+  }
 
   return {
     domain,

@@ -4,7 +4,7 @@ import { getScan, getReportUrl } from '../api/client';
 import type { ScanSummary, Severity, CheckCategory, CheckResult, Finding } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useTranslation } from '../i18n';
-import { IconDashboard, IconEyeOff, IconGlobe, IconSecurity, IconCode, IconFileSearch, IconServer, IconFileText, IconDownload, IconLightbulb, IconRadar, IconPackage, IconBug, IconZap, IconShieldAlert } from '../components/Icons';
+import { IconDashboard, IconEyeOff, IconGlobe, IconSecurity, IconCode, IconFileSearch, IconServer, IconFileText, IconDownload, IconLightbulb, IconRadar, IconPackage, IconBug, IconZap, IconShieldAlert, IconShieldCheck, IconDatabase } from '../components/Icons';
 
 const severityOrder: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const sevColors: Record<Severity, string> = { critical: 'text-red-400', high: 'text-orange-400', medium: 'text-yellow-400', low: 'text-cyan-400', info: 'text-gray-400' };
@@ -55,6 +55,9 @@ export default function ScanResult() {
     { id: 'spam', labelKey: t.scanResult.spam, icon: <IconBug size={16} />, categories: ['spam'] },
     { id: 'js-malware', labelKey: t.scanResult.jsMalware, icon: <IconZap size={16} />, categories: ['js-malware'] },
     { id: 'integrity', labelKey: t.scanResult.integrity, icon: <IconShieldAlert size={16} />, categories: ['integrity'] },
+    { id: 'plugin', labelKey: t.scanResult.plugin, icon: <IconPackage size={16} />, categories: ['plugin'] },
+    { id: 'hardening', labelKey: t.scanResult.hardening, icon: <IconShieldCheck size={16} />, categories: ['hardening'] },
+    { id: 'database', labelKey: t.scanResult.database, icon: <IconDatabase size={16} />, categories: ['database'] },
   ];
 
   useEffect(() => {
@@ -223,6 +226,9 @@ function OverviewTab({ scan, riskScore }: { scan: ScanSummary; riskScore: number
     'spam': t.scanResult.catSpam,
     'js-malware': t.scanResult.catJsMalware,
     'integrity': t.scanResult.catIntegrity,
+    'plugin': t.scanResult.catPlugin,
+    'hardening': t.scanResult.catHardening,
+    'database': t.scanResult.catDatabase,
   };
 
   return (
@@ -249,8 +255,8 @@ function OverviewTab({ scan, riskScore }: { scan: ScanSummary; riskScore: number
         <div className="space-y-3">
           {catEntries.map(([cat, count]) => {
             const pct = (count / maxCat) * 100;
-            const catColors: Record<string, string> = { security: 'bg-red-500', obfuscation: 'bg-purple-500', 'external-access': 'bg-cyan-500', 'code-pattern': 'bg-yellow-500', 'file-analysis': 'bg-green-500', wordpress: 'bg-blue-500', evasion: 'bg-amber-500', 'supply-chain': 'bg-pink-500', spam: 'bg-lime-500', 'js-malware': 'bg-rose-500', integrity: 'bg-indigo-500' };
-            const catIcons: Record<string, React.ReactNode> = { security: <IconSecurity size={18} />, obfuscation: <IconEyeOff size={18} />, 'external-access': <IconGlobe size={18} />, 'code-pattern': <IconCode size={18} />, 'file-analysis': <IconFileSearch size={18} />, wordpress: <IconServer size={18} />, evasion: <IconRadar size={18} />, 'supply-chain': <IconPackage size={18} />, spam: <IconBug size={18} />, 'js-malware': <IconZap size={18} />, integrity: <IconShieldAlert size={18} /> };
+            const catColors: Record<string, string> = { security: 'bg-red-500', obfuscation: 'bg-purple-500', 'external-access': 'bg-cyan-500', 'code-pattern': 'bg-yellow-500', 'file-analysis': 'bg-green-500', wordpress: 'bg-blue-500', evasion: 'bg-amber-500', 'supply-chain': 'bg-pink-500', spam: 'bg-lime-500', 'js-malware': 'bg-rose-500', integrity: 'bg-indigo-500', plugin: 'bg-teal-500', hardening: 'bg-indigo-600', database: 'bg-emerald-500' };
+            const catIcons: Record<string, React.ReactNode> = { security: <IconSecurity size={18} />, obfuscation: <IconEyeOff size={18} />, 'external-access': <IconGlobe size={18} />, 'code-pattern': <IconCode size={18} />, 'file-analysis': <IconFileSearch size={18} />, wordpress: <IconServer size={18} />, evasion: <IconRadar size={18} />, 'supply-chain': <IconPackage size={18} />, spam: <IconBug size={18} />, 'js-malware': <IconZap size={18} />, integrity: <IconShieldAlert size={18} />, plugin: <IconPackage size={18} />, hardening: <IconShieldCheck size={18} />, database: <IconDatabase size={18} /> };
             return (
               <div key={cat} className="flex items-center gap-4">
                 <span className="w-8 text-center flex-shrink-0 text-dark-500">{catIcons[cat] || <IconFileSearch size={18} />}</span>

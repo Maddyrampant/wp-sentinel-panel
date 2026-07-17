@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { Severity } from '../types';
 
 export interface TimelineEvent {
@@ -178,6 +179,51 @@ export function generateTimeline(
       description: `External domain connections detected: ${externalFindings.length} finding(s)`,
       relatedFindingIds: externalFindings.map(f => f.ruleId || ''),
     });
+  }
+
+  // File creation events (files modified within 7 days)
+  for (const finding of findings) {
+    if (finding.file && (finding.message.includes('new file') || finding.message.includes('created') || finding.message.includes('suspicious file'))) {
+      events.push({
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        type: 'file_created',
+        file: finding.file,
+        severity: 'medium',
+        description: `Suspicious file creation: ${finding.message}`,
+        relatedFindingIds: [],
+      });
+    }
+  }
+
+  // File modification events (core files)
+  for (const finding of findings) {
+    if (finding.file && (finding.file.includes('wp-includes') || finding.file.includes('wp-admin')) && finding.message.includes('modified')) {
+      events.push({
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        type: 'file_modified',
+        file: finding.file,
+        severity: 'critical',
+        description: `Core file modified: ${finding.message}`,
+        relatedFindingIds: [],
+      });
+    }
+  }
+
+  // Admin account creation events
+  for (const finding of findings) {
+    if (finding.message && (finding.message.includes('admin') || finding.message.includes('privilege') || finding.message.includes('user role')) && (finding.message.includes('created') || finding.message.includes('added') || finding.message.includes('escalat'))) {
+      events.push({
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        type: 'admin_account_created',
+        file: finding.file,
+        severity: 'critical',
+        description: `Admin account activity: ${finding.message}`,
+        relatedFindingIds: [],
+      });
+    }
   }
 
   return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());

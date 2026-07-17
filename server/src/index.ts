@@ -10,6 +10,10 @@ import dbScanRoutes from './routes/db-scan';
 import quarantineRoutes from './routes/quarantine';
 import remediationRoutes from './routes/remediation';
 import falsePositiveRoutes from './routes/false-positives';
+import pluginIntelRoutes from './routes/plugin-intel';
+import wpHardeningRoutes from './routes/wp-hardening';
+import checksumVerifyRoutes from './routes/checksum-verify';
+import mitreAttackRoutes from './routes/mitre-attack';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +42,10 @@ app.use('/api', dbScanRoutes);
 app.use('/api', quarantineRoutes);
 app.use('/api', remediationRoutes);
 app.use('/api', falsePositiveRoutes);
+app.use('/api', pluginIntelRoutes);
+app.use('/api', wpHardeningRoutes);
+app.use('/api', checksumVerifyRoutes);
+app.use('/api', mitreAttackRoutes);
 
 // Serve static React build in production
 const clientBuild = path.join(__dirname, '..', '..', 'client', 'dist');

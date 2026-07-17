@@ -12,6 +12,9 @@ import DatabaseScan from './pages/DatabaseScan';
 import Quarantine from './pages/Quarantine';
 import ThreatTimeline from './pages/ThreatTimeline';
 import FalsePositives from './pages/FalsePositives';
+import PluginIntel from './pages/PluginIntel';
+import HardeningCheck from './pages/HardeningCheck';
+import MitreMatrix from './pages/MitreMatrix';
 
 export default function App() {
   return (
@@ -29,6 +32,9 @@ export default function App() {
         <Route path="/quarantine" element={<Quarantine />} />
         <Route path="/threat-intel" element={<ThreatTimeline />} />
         <Route path="/false-positives" element={<FalsePositives />} />
+        <Route path="/plugin-intel" element={<PluginIntel />} />
+        <Route path="/hardening" element={<HardeningCheck />} />
+        <Route path="/mitre/:id" element={<MitreMatrix />} />
       </Routes>
       </ErrorBoundary>
     </Layout>

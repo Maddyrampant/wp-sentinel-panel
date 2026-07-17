@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from '../i18n';
-import { IconDashboard, IconSearch, IconHistory, IconCompare, IconTarget, IconPalette, IconDatabase, IconRadar, IconLock, IconSecurity, IconLangEn, IconLangFa, IconShieldCheck } from './Icons';
+import { IconDashboard, IconSearch, IconHistory, IconCompare, IconTarget, IconPalette, IconDatabase, IconRadar, IconLock, IconSecurity, IconLangEn, IconLangFa, IconShieldCheck, IconPackage } from './Icons';
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t, lang, setLang, dir } = useTranslation();
@@ -16,6 +16,9 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { to: '/threat-intel', icon: <IconRadar size={18} />, label: t.nav.threatIntel },
     { to: '/quarantine', icon: <IconLock size={18} />, label: t.nav.quarantine },
     { to: '/false-positives', icon: <IconShieldCheck size={18} />, label: t.nav.falsePositives },
+    { to: '/plugin-intel', icon: <IconPackage size={18} />, label: t.nav.pluginIntel },
+    { to: '/hardening', icon: <IconShieldCheck size={18} />, label: t.nav.hardening },
+    { to: '/mitre/:id', icon: <IconTarget size={18} />, label: 'MITRE ATT&CK' },
   ];
 
   return (

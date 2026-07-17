@@ -2819,6 +2819,1047 @@ function runChecks(files: FileContext[]): CheckResult[] {
     results.push({ checkId: 'INT-005', checkName: 'Core Modified', category: 'integrity', severity: 'critical', description: 'Detects suspicious patterns in WordPress core files (wp-includes, wp-admin)', findings });
   }
 
+  // SEC-086: SSTI (Server-Side Template Injection)
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /\{\{.*\$_(GET|POST|REQUEST)/i,
+      /@php\s*.*\$_(GET|POST|REQUEST)/i,
+      /\{php\}/i,
+      /\{literal\}/i,
+      /preg_replace.*\$_(GET|POST|REQUEST).*template/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'SSTI pattern detected', 'Server-Side Template Injection pattern found — may allow code execution via template engines.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-086', checkName: 'SSTI', category: 'security', severity: 'critical', description: 'Detects Server-Side Template Injection patterns (Twig, Blade, Smarty)', findings });
+  }
+
+  // SEC-087: Polyglot File Detection
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      const base = path.basename(file.path).toLowerCase();
+      if (/\.(jpg|jpeg|png|gif|bmp|svg|webp)\.(php|phtml|php5)$/i.test(base)) {
+        findings.push(f(file.relativePath, 1, 0, `Double extension: ${base}`, 'Polyglot file with image+PHP extension', 'File uses image extension with PHP extension — may bypass upload filters.'));
+      }
+      if (file.content.startsWith('GIF89a') && /<\?php/i.test(file.content)) {
+        findings.push(f(file.relativePath, 1, 0, 'GIF89a header with PHP code', 'Polyglot: GIF header followed by PHP code', 'File disguised as GIF but contains PHP — common webshell technique.'));
+      }
+      if (file.content.startsWith('<?php') && /\.(jpg|png|gif)/i.test(base)) {
+        findings.push(f(file.relativePath, 1, 0, `PHP code in image extension: ${base}`, 'PHP file disguised as image', 'File has image extension but contains PHP code.'));
+      }
+    }
+    results.push({ checkId: 'SEC-087', checkName: 'Polyglot Files', category: 'security', severity: 'critical', description: 'Detects polyglot files with multiple extension indicators', findings });
+  }
+
+  // SEC-088: PHP Object Injection
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /unserialize\s*\(\s*file_get_contents/i,
+      /unserialize\s*\(\s*\$_COOKIE/i,
+      /unserialize\s*\(\s*\$_(GET|POST|REQUEST)/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'PHP Object Injection', 'unserialize with untrusted data source — potential object injection RCE.'));
+            break;
+          }
+        }
+      }
+      if (/\bunserialize\s*\(/i.test(file.content)) {
+        const hasMagic = /\b__wakeup\s*\(|__destruct\s*\(/i.test(file.content);
+        if (hasMagic) {
+          findings.push(f(file.relativePath, 1, 0, 'unserialize + magic methods', 'Class with magic methods in file using unserialize', '__wakeup/__destruct exploitable via deserialization.'));
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-088', checkName: 'Object Injection', category: 'security', severity: 'critical', description: 'Detects PHP Object Injection via dangerous unserialize patterns', findings });
+  }
+
+  // SEC-089: China Chopper Webshell
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /\$_(POST|REQUEST)\s*\[\s*['"]cmd['"]\s*\].*\b(eval|assert|system|exec)\b/i,
+      /\b(eval|assert|system|exec)\s*\(\s*\$_(POST|REQUEST)\s*\[\s*['"]cmd['"]/i,
+      /\beval\s*\(\s*\$_(POST|REQUEST)\s*\[\s*['"]\w+['"]/i,
+      /\bassert\s*\(\s*base64_decode\s*\(/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'China Chopper pattern', 'Pattern consistent with China Chopper one-liner webshell.'));
+            break;
+          }
+        }
+      }
+      if (file.lines.length <= 5 && /\b(eval|exec|system|passthru)\s*\(/i.test(file.content) && /\$_(POST|GET|REQUEST)/i.test(file.content)) {
+        findings.push(f(file.relativePath, 1, 0, 'Very short PHP with eval+input', 'Minimal PHP file with eval and user input', 'Extremely short file with code execution + user input — likely webshell.'));
+      }
+    }
+    results.push({ checkId: 'SEC-089', checkName: 'China Chopper', category: 'security', severity: 'critical', description: 'Detects China Chopper webshell patterns', findings });
+  }
+
+  // SEC-090: PHPSPY Family
+  {
+    const findings: Finding[] = [];
+    const pats = [/phpspy/i, /\bFilesMan\s*\(/i, /\bDSO[\s-]*Tunnel/i, /\bDSO\b.*shell/i, /ASP\s*Spy.*PHP/i];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'PHPSPY family variant', 'Pattern matches known PHPSPY/FilesMan/DSO webshell family.'));
+            break;
+          }
+        }
+      }
+      const base = path.basename(file.path).toLowerCase();
+      if (/phpspy/i.test(base)) {
+        findings.push(f(file.relativePath, 1, 0, `Filename: ${base}`, 'PHPSPY webshell filename', 'File named after known PHPSPY webshell family.'));
+      }
+    }
+    results.push({ checkId: 'SEC-090', checkName: 'PHPSPY Family', category: 'security', severity: 'critical', description: 'Detects PHPSPY, FilesMan, DSO-Tunnel webshell variants', findings });
+  }
+
+  // SEC-091: Process Injection Patterns
+  {
+    const findings: Finding[] = [];
+    const pats = [/ptrace\s*\(\s*PTRACE_ATTACH/i, /\/proc\/self\/mem/i, /\/proc\/\*\/mem/i, /\bdl\s*\(\s*RTLD_GLOBAL/i];
+    for (const file of allFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Process injection pattern', 'Process memory manipulation or dynamic loading pattern detected.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-091', checkName: 'Process Injection', category: 'security', severity: 'critical', description: 'Detects process injection and memory manipulation patterns', findings });
+  }
+
+  // SEC-092: More API Key Patterns
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /\bHEROKU_API_KEY\s*=\s*['"][^'"]+['"]/i,
+      /\bDIGITALOCEAN_ACCESS_TOKEN\s*=\s*['"][^'"]+['"]/i,
+      /\bMAILGUN_API_KEY\s*=\s*['"][^'"]+['"]/i,
+      /\bPAGERDUTY_SERVICE_KEY\s*=\s*['"][^'"]+['"]/i,
+      /\bpd_service_key\s*=\s*['"][^'"]+['"]/i,
+      /\bASANA_ACCESS_TOKEN\s*=\s*['"][^'"]+['"]/i,
+      /\bJIRA_API_TOKEN\s*=\s*['"][^'"]+['"]/i,
+      /\bCONTENTFUL_MANAGEMENT_TOKEN\s*=\s*['"][^'"]+['"]/i,
+    ];
+    for (const file of files) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 80) + '...', 'Hardcoded API key', 'Third-party service API key found in source code.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-092', checkName: 'Extended API Keys', category: 'security', severity: 'high', description: 'Detects Heroku, DigitalOcean, Mailgun, PagerDuty, Asana, Jira, Contentful keys', findings });
+  }
+
+  // SEC-093: Container Escape Patterns
+  {
+    const findings: Finding[] = [];
+    const pats = [/docker\.sock/i, /proc\/1\/cgroup/i, /\bnsenter\b/i, /\bchroot\b.*\.\./i, /\bmount\b.*--bind.*\/proc/i];
+    for (const file of allFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Container escape pattern', 'Pattern associated with container breakout or Docker socket abuse.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-093', checkName: 'Container Escape', category: 'security', severity: 'critical', description: 'Detects container escape and Docker socket references', findings });
+  }
+
+  // SEC-094: HTTP Request Smuggling Indicators
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/Transfer-Encoding:\s*chunked/i.test(file.lines[i]) && /Content-Length/i.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'HTTP Request Smuggling indicator', 'Transfer-Encoding and Content-Length in same response — potential request smuggling.'));
+        }
+        if (/Transfer-Encoding:\s*identity/i.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Non-standard Transfer-Encoding', 'Transfer-Encoding: identity is non-standard and may indicate smuggling.'));
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-094', checkName: 'HTTP Smuggling', category: 'security', severity: 'high', description: 'Detects HTTP Request Smuggling indicators', findings });
+  }
+
+  // SEC-095: Prototype Pollution (JS)
+  {
+    const findings: Finding[] = [];
+    const pats = [/__proto__/i, /Object\.assign\s*\(\s*\w+/i, /constructor\.prototype/i, /prototype\s*pollution/i];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Prototype pollution pattern', 'JavaScript prototype pollution or __proto__ manipulation detected.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-095', checkName: 'Prototype Pollution', category: 'security', severity: 'high', description: 'Detects JavaScript prototype pollution patterns', findings });
+  }
+
+  // SEC-096: More Webshell Families
+  {
+    const findings: Finding[] = [];
+    const pats = [/WSO\s*\d|WSO\s*Shell|WSO\s*\(/i, /b374k\s*\(|b374k\s*shell/i, /r57\s*\(|r57\s*shell/i, /AntSword/i, /Webadmin\s*\(/i, /\bKadotus\b/i, /\balfa_\w+\s*\(/i];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Webshell family pattern', 'Enhanced webshell pattern matching (WSO/b374k/r57/AntSword/Alfa).'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-096', checkName: 'Webshell Families+', category: 'security', severity: 'critical', description: 'Detects extended webshell family patterns (WSO, b374k, r57, AntSword, Alfa Shell)', findings });
+  }
+
+  // SEC-097: Log4j-style Patterns
+  {
+    const findings: Finding[] = [];
+    const pats = [/\$\{jndi:(ldap|rmi):\/\//i, /\$\{\$\{lower:j\}ndi:/i, /\$\{\$::-j\}\$::-n\}\$::-d\}\$::-i\}:/i, /\$\{.*jndi.*ldap/i];
+    for (const file of allFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Log4j-style JNDI pattern', 'Log4j-style JNDI injection pattern detected — potential RCE vector.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-097', checkName: 'Log4j Pattern', category: 'security', severity: 'critical', description: 'Detects Log4j-style JNDI injection patterns (including obfuscated variants)', findings });
+  }
+
+  // SEC-098: DNS Rebinding SSRF
+  {
+    const findings: Finding[] = [];
+    const pats = [/dns_rebind|rbndr/i, /dns.*resolution.*cache/i, /time.of.check.*time.of.use/i, /\bgethostbyname\s*\(/i];
+    for (const file of allFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'DNS rebinding / SSRF pattern', 'DNS rebinding or hostname resolution pattern that may enable SSRF.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-098', checkName: 'DNS Rebinding', category: 'security', severity: 'high', description: 'Detects DNS rebinding and SSRF-related patterns', findings });
+  }
+
+  // SEC-099: PHP Filter Chain Attack
+  {
+    const findings: Finding[] = [];
+    const pats = [/php:\/\/filter.*convert\.base64-encode/i, /php:\/\/input.*read=/i, /php:\/\/filter.*convert\.iconv/i, /php:\/\/filter.*php:\/\/filter/i];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'PHP filter chain attack', 'PHP stream filter chain used for data exfiltration or code execution.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-099', checkName: 'PHP Filter Chain', category: 'security', severity: 'high', description: 'Detects PHP filter chain attack patterns', findings });
+  }
+
+  // SEC-100: Hidden Admin Interfaces
+  {
+    const findings: Finding[] = [];
+    const pats = [/wp-admin.*(?:bypass|hidden|alternate|secret)/i, /xmlrpc\.php.*system\.multicall/i, /admin-ajax\.php.*(?:!.*nonce|without.*auth)/i, /login_form\s*\(/i];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            const hasNonce = /wp_nonce|nonce/i.test(file.content);
+            if (p.source.includes('login_form') && hasNonce) continue;
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Hidden admin interface', 'Alternate admin access path or login bypass pattern detected.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'SEC-100', checkName: 'Hidden Admin', category: 'security', severity: 'high', description: 'Detects hidden admin interfaces and alternate access paths', findings });
+  }
+
+  // WP-019: REST API Endpoint Exposure
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /register_rest_route\s*\([^)]*permission_callback\s*=>\s*__return_true/i,
+      /register_rest_route\s*\([^)]*permission_callback\s*=>\s*['"]?true['"]?/i,
+      /register_rest_route\s*\([^)]*(?!permission_callback)/i,
+      /rest_api_init\s*\(/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            const hasPermissive = /__return_true|=>\s*true/i.test(file.lines[i]);
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), hasPermissive ? 'REST route with permissive callback' : 'REST route registration', hasPermissive ? 'permission_callback set to __return_true — publicly accessible endpoint.' : 'REST API route registered — verify permission_callback is set.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'WP-019', checkName: 'REST API Exposure', category: 'wordpress', severity: 'high', description: 'Detects REST API endpoints with permissive or missing permission callbacks', findings });
+  }
+
+  // WP-020: User Capability Grants
+  {
+    const findings: Finding[] = [];
+    const pats = [/add_cap\s*\([^)]*administrator/i, /add_role\s*\(/i, /update_user_meta\s*\([^)]*wp_capabilities.*administrator/i];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'User capability grant', 'Code grants administrator capabilities or creates admin roles.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'WP-020', checkName: 'Capability Grant', category: 'wordpress', severity: 'critical', description: 'Detects code that grants administrator capabilities or creates admin roles', findings });
+  }
+
+  // WP-021: Revision Content Secrets
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/wp_save_post_revision/i.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Revision hook', 'wp_save_post_revision hook — may store sensitive data in revisions.'));
+        }
+        if (/revision.*\b(password|secret|token|api_key|apikey)\b/i.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Sensitive data in revision', 'Revision-related code references sensitive data patterns.'));
+        }
+      }
+    }
+    results.push({ checkId: 'WP-021', checkName: 'Revision Secrets', category: 'wordpress', severity: 'medium', description: 'Detects sensitive data patterns in revision handling code', findings });
+  }
+
+  // WP-022: wp-cron Malicious Schedules
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /wp_schedule_event\s*\([^)]*\d+\s*\)/i,
+      /wp_schedule_single_event\s*\([^)]*\b(eval|exec|system)\b/i,
+      /cron_schedules\s*=>/i,
+      /update_option\s*\(\s*['"]cron['"]/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Suspicious cron schedule', 'wp-cron schedule with potentially malicious callback or very short interval.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'WP-022', checkName: 'Malicious Cron', category: 'wordpress', severity: 'high', description: 'Detects suspicious wp-cron schedules and direct cron manipulation', findings });
+  }
+
+  // WP-023: Plugin Update Mechanism
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /upgrader_source_selection\s*\(/i,
+      /pre_set_site_transient_update_plugins\s*\(/i,
+      /plugins_api\s*\(\s*['"]/i,
+      /update_plugins.*https?:\/\/(?!.*wordpress\.org)/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin update mechanism', 'Custom plugin update mechanism detected — may hijack plugin updates.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'WP-023', checkName: 'Update Hijack', category: 'wordpress', severity: 'critical', description: 'Detects plugin update mechanism manipulation', findings });
+  }
+
+  // WP-024: Widget/Menu Backdoor
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /register_sidebar_widget\s*\([^)]*\b(eval|exec|system)\b/i,
+      /register_nav_menu\s*\([^)]*\b(eval|exec|system)\b/i,
+      /wp_nav_menu_items\s*\(/i,
+      /widget\s*.*\b(eval|exec)\b.*widget_output/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Widget/Menu backdoor', 'Widget or menu registration with dangerous callback — potential backdoor.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'WP-024', checkName: 'Widget Backdoor', category: 'wordpress', severity: 'critical', description: 'Detects widget/menu registrations with dangerous callbacks', findings });
+  }
+
+  // WP-025: Shortcode Backdoor
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /add_shortcode\s*\([^)]*\b(eval|exec)\b/i,
+      /shortcode.*call_user_func/i,
+      /add_shortcode\s*\([^)]*base64_decode.*eval/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Shortcode backdoor', 'WordPress shortcode with eval/exec — potential code execution backdoor.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'WP-025', checkName: 'Shortcode Backdoor', category: 'wordpress', severity: 'critical', description: 'Detects WordPress shortcodes with eval/exec callbacks', findings });
+  }
+
+  // EVD-006: Accept-Language Cloaking
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/\$_SERVER\s*\[\s*['"]HTTP_ACCEPT_LANGUAGE['"]\s*\]/i.test(file.lines[i]) && /if\s*\(|elseif\s*\(|\?/.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Accept-Language cloaking', 'Conditional execution based on Accept-Language header — language-based activation.'));
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-006', checkName: 'Language Cloaking', category: 'evasion', severity: 'high', description: 'Detects conditional code execution based on Accept-Language header', findings });
+  }
+
+  // EVD-007: GeoIP-based Activation
+  {
+    const findings: Finding[] = [];
+    const pats = [/geoip|GeoIP/i, /\bcountry\b.*==.*['"][A-Z]{2}['"]/i, /GeoLocation.*if|if.*country/i];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'GeoIP activation', 'Geolocation-based conditional activation — may hide malware from certain countries.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-007', checkName: 'GeoIP Activation', category: 'evasion', severity: 'high', description: 'Detects GeoIP-based conditional code activation', findings });
+  }
+
+  // EVD-008: Referrer Policy Manipulation
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/Referrer-Policy.*no-referrer/i.test(file.lines[i]) && !/meta.*charset/i.test(file.lines[i])) {
+          findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Referrer-Policy: no-referrer', 'Setting Referrer-Policy to no-referrer hides traffic origin — may conceal malicious navigation.'));
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-008', checkName: 'Referrer Manipulation', category: 'evasion', severity: 'medium', description: 'Detects Referrer-Policy manipulation to hide traffic origin', findings });
+  }
+
+  // EVD-009: Headless Browser Detection Bypass
+  {
+    const findings: Finding[] = [];
+    const pats = [/navigator\.webdriver/i, /window\.chrome\s*[!=]/i, /Notification\.permission/i, /headless.*chrome|phantom/i];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Headless browser detection bypass', 'JavaScript checks for headless/automated browser — evades automated scanning.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-009', checkName: 'Headless Bypass', category: 'evasion', severity: 'medium', description: 'Detects JavaScript patterns that detect headless browsers to evade scanning', findings });
+  }
+
+  // EVD-010: Sandbox Detection
+  {
+    const findings: Finding[] = [];
+    const pats = [/hasOwnProperty.*(?:webdriver|phantom)/i, /document\.__proto__/i, /Date\.now\(\).*Date\.now\(\)/i, /window\.outerWidth\s*===?\s*0|window\.outerHeight\s*===?\s*0/i];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Sandbox detection', 'JavaScript sandbox/VM detection pattern — used to evade analysis environments.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'EVD-010', checkName: 'Sandbox Detection', category: 'evasion', severity: 'medium', description: 'Detects sandbox and virtual machine detection patterns in JavaScript', findings });
+  }
+
+  // JS-006: WebAssembly Miner
+  {
+    const findings: Finding[] = [];
+    const pats = [/WebAssembly\.instantiate/i, /wasm.*base64|atob.*wasm/i, /importObject.*env.*mining/i, /\.wasm\b/i];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'WebAssembly miner', 'WebAssembly instantiation pattern — may be used for browser-based mining.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-006', checkName: 'WASM Miner', category: 'js-malware', severity: 'critical', description: 'Detects WebAssembly-based cryptocurrency mining patterns', findings });
+  }
+
+  // JS-007: Clipboard Hijacking
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /document\.execCommand\s*\(\s*['"]copy['"]/i,
+      /navigator\.clipboard\.writeText.*([bc]c[0-9a-zA-Z]|0x[0-9a-fA-F]{40})/i,
+      /addEventListener\s*\(\s*['"]copy['"]/i,
+    ];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Clipboard hijacking', 'Clipboard manipulation detected — may replace copied crypto addresses.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-007', checkName: 'Clipboard Hijack', category: 'js-malware', severity: 'high', description: 'Detects clipboard hijacking and crypto address replacement patterns', findings });
+  }
+
+  // JS-008: Formjacking
+  {
+    const findings: Finding[] = [];
+    const pats = [/form\.action\s*=.*https?:\/\//i, /\.submit\s*\(\s*\)/i, /type\s*=\s*['"]hidden['"].*https?:\/\//i, /payment.*fetch|fetch.*payment/i];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Formjacking', 'Form action modification or payment data interception detected.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-008', checkName: 'Formjacking', category: 'js-malware', severity: 'critical', description: 'Detects formjacking and payment data capture patterns', findings });
+  }
+
+  // JS-009: Browser Fingerprinting
+  {
+    const findings: Finding[] = [];
+    const pats = [/canvas\.toDataURL/i, /WebGLRenderingContext/i, /AudioContext/i, /navigator\.plugins.*length/i, /screen\.colorDepth|screen\.pixelDepth/i];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Browser fingerprinting', 'Canvas/WebGL/Audio fingerprinting pattern detected.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-009', checkName: 'Fingerprinting', category: 'js-malware', severity: 'medium', description: 'Detects browser fingerprinting techniques (Canvas, WebGL, Audio)', findings });
+  }
+
+  // JS-010: Cookie Stealing/Exfil
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /document\.cookie.*(?:fetch|XMLHttpRequest|sendBeacon)/i,
+      /document\.cookie.*new\s*Image\(\)/i,
+      /document\.cookie.*WebSocket/i,
+      /localStorage.*(?:fetch|XMLHttpRequest|sendBeacon|WebSocket)/i,
+      /sessionStorage.*(?:fetch|XMLHttpRequest|sendBeacon|WebSocket)/i,
+    ];
+    for (const file of allFiles) {
+      if (file.extension === '.js') {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Cookie/data exfiltration', 'Cookie or storage data being sent to external endpoint.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'JS-010', checkName: 'Cookie Exfil', category: 'js-malware', severity: 'critical', description: 'Detects cookie stealing and localStorage exfiltration patterns', findings });
+  }
+
+  // INT-006: Plugin/Theme Checksum Mismatch
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/readme\.txt/i.test(path.basename(file.path))) {
+        if (/base64_decode|eval\s*\(|gzinflate/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Encoded content in readme.txt', 'readme.txt contains encoded content', 'Legitimate readme files should not contain encoded/obfuscated code.'));
+        }
+      }
+      if (/functions\.php/i.test(file.path)) {
+        if (/\b(eval|exec|system|passthru|shell_exec)\s*\(/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Dangerous function in functions.php', 'functions.php contains dangerous functions', 'functions.php should not contain eval/exec/system calls.'));
+        }
+      }
+    }
+    results.push({ checkId: 'INT-006', checkName: 'Plugin/Theme Mismatch', category: 'integrity', severity: 'high', description: 'Detects suspicious modifications in plugin/theme core files', findings });
+  }
+
+  // INT-007: Suspicious Git History
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      if (file.path.toLowerCase().includes('.git\\config') || file.path.toLowerCase().includes('.git/config')) {
+        if (/url\s*=.*https?:\/\/(?!github\.com|gitlab\.com|bitbucket\.org)/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Non-standard git remote', '.git/config contains unusual remote URL', 'Unexpected git remote may indicate compromised repository.'));
+        }
+      }
+      if (file.path.toLowerCase().includes('.git\\head') || file.path.toLowerCase().includes('.git/HEAD')) {
+        findings.push(f(file.relativePath, 1, 0, '.git/HEAD accessible', '.git/HEAD in web-accessible location', '.git directory should not be publicly accessible.'));
+      }
+      if (/(pre-commit|post-commit|pre-push)\s*$/i.test(path.basename(file.path))) {
+        if (/eval|exec|system|curl|wget/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Suspicious git hook', 'Git hook contains dangerous functions', 'Git hooks with code execution may be used as persistence mechanism.'));
+        }
+      }
+    }
+    results.push({ checkId: 'INT-007', checkName: 'Suspicious Git', category: 'integrity', severity: 'high', description: 'Detects suspicious git history, remotes, and hooks', findings });
+  }
+
+  // INT-008: Unexpected Cron Entries
+  {
+    const findings: Finding[] = [];
+    for (const file of allFiles) {
+      const bn = path.basename(file.path).toLowerCase();
+      if (bn === 'crontab' || bn.startsWith('cron.')) {
+        findings.push(f(file.relativePath, 1, 0, `Cron file: ${bn}`, 'System crontab found in project', 'Cron configuration files should not be in web directories.'));
+      }
+      if (/wp-cron\.php/i.test(file.content) && !/functions\.php|plugin/i.test(file.path)) {
+        findings.push(f(file.relativePath, 1, 0, 'wp-cron.php call in unexpected location', 'wp-cron.php referenced outside expected files', 'wp-cron.php should only be called from standard WordPress locations.'));
+      }
+    }
+    results.push({ checkId: 'INT-008', checkName: 'Unexpected Cron', category: 'integrity', severity: 'medium', description: 'Detects system cron entries and unexpected wp-cron references', findings });
+  }
+
+  // INT-009: Modified Autoloaded Options
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/add_option\s*\(|update_option\s*\(/i.test(file.lines[i])) {
+          if (/eval|exec|system|base64_decode/i.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Option with code execution', 'wp_options update with eval/exec pattern — potential persistent code injection.'));
+          }
+          if (file.lines[i].length > 1000) {
+            findings.push(f(file.relativePath, i + 1, 0, `Very long option line (${file.lines[i].length} chars)`, 'Extremely large option value', 'Very long serialized data in options — may be hiding payload.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'INT-009', checkName: 'Modified Options', category: 'integrity', severity: 'high', description: 'Detects suspicious wp_options modifications and large serialized payloads', findings });
+  }
+
+  // INT-010: Supply Chain Indicators in Core
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-includes|wp-admin/i.test(file.relativePath)) {
+        if (/\b(fetch|curl|file_get_contents|wp_remote_get)\s*\(\s*['"]https?:\/\/(?!.*wordpress\.org)/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Network call in core file', 'Unexpected network call in WordPress core', 'Core files should not make external HTTP requests to non-WordPress domains.'));
+        }
+      }
+    }
+    results.push({ checkId: 'INT-010', checkName: 'Core Supply Chain', category: 'integrity', severity: 'critical', description: 'Detects supply chain indicators in WordPress core files', findings });
+  }
+
+  // PLG-001: Plugin Backdoor Patterns
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        const pats = [/\b(eval|exec|system|passthru|shell_exec)\s*\(\s*\$_(GET|POST|REQUEST)/i, /\b(eval|assert)\s*\(\s*base64_decode/i, /register_activation_hook.*add_role.*administrator/i];
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin backdoor', 'Dangerous code pattern in plugin file — potential backdoor.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-001', checkName: 'Plugin Backdoor', category: 'plugin', severity: 'critical', description: 'Detects backdoor patterns in plugin files', findings });
+  }
+
+  // PLG-002: Plugin Update Hijacking
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        const pats = [/upgrader_source_selection\s*\(/i, /pre_set_site_transient_update_plugins\s*\(/i, /plugins_api\s*\(/i];
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin update hijack', 'Plugin modifies update mechanism — may install malicious updates.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-002', checkName: 'Plugin Update Hijack', category: 'plugin', severity: 'critical', description: 'Detects plugin update mechanism hijacking', findings });
+  }
+
+  // PLG-003: Plugin License Bypass
+  {
+    const findings: Finding[] = [];
+    const pats = [/license_check\s*=\s*(true|1|['"]valid['"])/i, /activate_license.*bypass/i, /null.*license|crack.*license/i, /preg_replace.*license/i];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin license bypass', 'License validation bypass pattern detected in plugin.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-003', checkName: 'License Bypass', category: 'plugin', severity: 'medium', description: 'Detects plugin license validation bypass attempts', findings });
+  }
+
+  // PLG-004: Plugin SQL Injection
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        const pats = [
+          /\$wpdb\s*->\s*query\s*\(\s*['"].*\$_(GET|POST|REQUEST)/i,
+          /\$wpdb\s*->\s*prepare\s*\([^)]*\$_(GET|POST|REQUEST)[^)]*\)/i,
+          /\$wpdb\s*->\s*query\s*\(\s*['"][^'"]*\.\s*\$/i,
+        ];
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin SQL injection', 'User input in SQL query within plugin file.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-004', checkName: 'Plugin SQLi', category: 'plugin', severity: 'critical', description: 'Detects SQL injection vulnerabilities in plugin files', findings });
+  }
+
+  // PLG-005: Plugin AJAX Security
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        const hasAjax = /wp_ajax_/i.test(file.content);
+        const hasNonce = /wp_verify_nonce|check_ajax_referer/i.test(file.content);
+        const hasPermission = /current_user_can/i.test(file.content);
+        if (hasAjax && !hasNonce) {
+          for (let i = 0; i < file.lines.length; i++) {
+            if (/wp_ajax_/i.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin AJAX without nonce', 'Plugin AJAX handler missing nonce verification.'));
+              break;
+            }
+          }
+        }
+        if (hasAjax && !hasPermission) {
+          const hasDangerous = /\b(eval|exec|system)\s*\(/i.test(file.content);
+          if (hasDangerous) {
+            findings.push(f(file.relativePath, 1, 0, file.content.substring(0, 150), 'Plugin AJAX with exec+no auth', 'Plugin AJAX with dangerous callback and no permission check.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-005', checkName: 'Plugin AJAX Security', category: 'plugin', severity: 'high', description: 'Detects plugin AJAX handlers without nonce verification or capability checks', findings });
+  }
+
+  // PLG-006: Plugin File Inclusion
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        const pats = [
+          /\b(include|require|include_once|require_once)\s*\(\s*\$_(GET|POST|REQUEST)/i,
+          /\b(include|require|include_once|require_once)\s*\(\s*\$\w+\s*\.\s*\$_/i,
+        ];
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin file inclusion', 'User input in include/require within plugin — LFI/RFI risk.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-006', checkName: 'Plugin File Inclusion', category: 'plugin', severity: 'critical', description: 'Detects file inclusion with user input in plugin files', findings });
+  }
+
+  // PLG-007: Plugin Obfuscation
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        if (/base64_decode\s*\(.*\)\s*;.*\beval\s*\(/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Encoded + eval in plugin', 'Plugin file with base64_decode + eval', 'Obfuscated code in plugin file — potential malware.'));
+        }
+        let longStrings = 0;
+        for (const line of file.lines) {
+          const m = line.match(/['"]([A-Za-z0-9+/=]{100,})['"]/);
+          if (m) longStrings++;
+        }
+        if (longStrings >= 3) {
+          findings.push(f(file.relativePath, 1, 0, `${longStrings} high-entropy strings`, 'Plugin with multiple high-entropy strings', 'Plugin contains many encoded/encrypted strings.'));
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-007', checkName: 'Plugin Obfuscation', category: 'plugin', severity: 'high', description: 'Detects obfuscated code in plugin files', findings });
+  }
+
+  // PLG-008: Plugin Hardcoded Secrets
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        const pats = [
+          /\b(api[_-]?key|apikey|secret[_-]?key|auth[_-]?token)\s*=\s*['"][A-Za-z0-9+/=_\-]{16,}['"]/i,
+          /\b(password|passwd|pwd)\s*=\s*['"][^'"]{6,}['"]/i,
+          /\b(DB_PASSWORD|DB_USER)\s*=\s*['"][^'"]+['"]/i,
+        ];
+        for (let i = 0; i < file.lines.length; i++) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 80) + '...', 'Hardcoded secret in plugin', 'API key or password found in plugin file.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-008', checkName: 'Plugin Secrets', category: 'plugin', severity: 'high', description: 'Detects hardcoded secrets and API keys in plugin files', findings });
+  }
+
+  // PLG-009: Plugin Dependency Issues
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        if (/cdn\.|jsdelivr\.net|unpkg\.com|cloudflare\.com\/cdn/i.test(file.content)) {
+          const pats = [/cdn\.[^'"]+\.js/i, /jsdelivr\.net\/npm\//i, /unpkg\.com\//i];
+          for (let i = 0; i < file.lines.length; i++) {
+            for (const p of pats) {
+              if (p.test(file.lines[i])) {
+                findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Plugin external CDN dependency', 'Plugin loads resources from external CDN — supply chain risk.'));
+                break;
+              }
+            }
+          }
+        }
+        if (/exec\s*\(|system\s*\(|passthru\s*\(/i.test(file.content) && !/function_exists\s*\(\s*['"]exec['"]\s*\)/i.test(file.content)) {
+          const hasDisableCheck = /ini_get\s*\(\s*['"]disable_functions['"]/i.test(file.content);
+          if (!hasDisableCheck) {
+            findings.push(f(file.relativePath, 1, 0, file.content.substring(0, 150), 'exec/system without availability check', 'Plugin uses exec/system without checking if function is available.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-009', checkName: 'Plugin Dependencies', category: 'plugin', severity: 'medium', description: 'Detects plugin dependency and CDN usage issues', findings });
+  }
+
+  // PLG-010: Plugin-Specific Malware
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      if (/wp-content[\/\\]plugins/i.test(file.relativePath)) {
+        const pluginPath = file.relativePath.toLowerCase();
+        if (/woocommerce/i.test(pluginPath) && /\b(eval|exec|system|base64_decode)\s*\(/i.test(file.content)) {
+          const hasUserInput = /\$_(GET|POST|REQUEST|COOKIE)/i.test(file.content);
+          if (hasUserInput) {
+            findings.push(f(file.relativePath, 1, 0, 'WooCommerce backdoor', 'Suspicious code in WooCommerce-related plugin', 'WooCommerce plugin with eval/exec + user input — likely backdoor.'));
+          }
+        }
+        if (/contact-form-7|wpforms|gravityforms/i.test(pluginPath) && /wp_ajax_.*eval|wp_ajax_.*exec/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Contact form backdoor', 'AJAX handler with eval/exec in form plugin', 'Contact form plugin with code execution in AJAX handler.'));
+        }
+        if (/elementor/i.test(pluginPath) && /\b(eval|exec|system)\s*\(/i.test(file.content) && /\$_(GET|POST|REQUEST)/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Elementor widget backdoor', 'Suspicious code in Elementor-related plugin', 'Elementor plugin with code execution and user input.'));
+        }
+        if (/yoast|wp-seo/i.test(pluginPath) && /\b(eval|exec)\s*\(\s*\$_/i.test(file.content)) {
+          findings.push(f(file.relativePath, 1, 0, 'Yoast SEO manipulation', 'Suspicious code in Yoast SEO plugin', 'Yoast SEO plugin with direct code execution from user input.'));
+        }
+      }
+    }
+    results.push({ checkId: 'PLG-010', checkName: 'Plugin-Specific Malware', category: 'plugin', severity: 'critical', description: 'Detects malware targeting WooCommerce, Contact Form 7, Elementor, Yoast SEO', findings });
+  }
+
+  // DBDEEP-001: Post Meta Injection
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      const pats = [
+        /update_post_meta\s*\([^)]*\$_(GET|POST|REQUEST)/i,
+        /add_post_meta\s*\([^)]*serialize/i,
+        /update_post_meta\s*\([^)]*eval|update_post_meta\s*\([^)]*exec/i,
+      ];
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Post meta injection', 'User input or eval/exec in post_meta update — potential data injection.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'DBDEEP-001', checkName: 'Post Meta Injection', category: 'database', severity: 'high', description: 'Detects post_meta injection with user input or code execution patterns', findings });
+  }
+
+  // DBDEEP-002: Comment Table XSS
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /<script[\s>]/i,
+      /\bon(load|error|click|mouseover)\s*=/i,
+      /javascript\s*:/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/comment.*content|comment_content|wp_insert_comment|wp_new_comment/i.test(file.lines[i])) {
+          for (const p of pats) {
+            if (p.test(file.lines[i])) {
+              findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Comment XSS pattern', 'XSS pattern in comment-related code — stored XSS risk.'));
+              break;
+            }
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'DBDEEP-002', checkName: 'Comment XSS', category: 'database', severity: 'high', description: 'Detects XSS patterns in comment handling code', findings });
+  }
+
+  // DBDEEP-003: User Meta Escalation
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /update_user_meta\s*\([^)]*wp_capabilities.*administrator/i,
+      /add_user_meta\s*\([^)]*wp_capabilities.*administrator/i,
+      /update_user_meta\s*\([^)]*role\s*=>\s*['"]administrator/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'User meta privilege escalation', 'User meta update granting administrator role — privilege escalation.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'DBDEEP-003', checkName: 'User Meta Escalation', category: 'database', severity: 'critical', description: 'Detects user meta manipulation that grants administrator privileges', findings });
+  }
+
+  // DBDEEP-004: Option Size Anomalies
+  {
+    const findings: Finding[] = [];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        if (/add_option|update_option/i.test(file.lines[i])) {
+          if (file.lines[i].length > 10000) {
+            findings.push(f(file.relativePath, i + 1, 0, `Very large option value (${file.lines[i].length} chars)`, 'Option value exceeding 10KB', 'Extremely large serialized data in options — may be hiding payload.'));
+          }
+          if (/base64_encode|base64_decode.*serialize/i.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Base64-encoded serialized option', 'Option with base64-encoded serialized data — potential data injection.'));
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'DBDEEP-004', checkName: 'Option Size Anomaly', category: 'database', severity: 'high', description: 'Detects unusually large wp_options values and encoded serialized data', findings });
+  }
+
+  // DBDEEP-005: Transient Injection
+  {
+    const findings: Finding[] = [];
+    const pats = [
+      /set_transient\s*\([^)]*\$.*(eval|exec|system)/i,
+      /set_site_transient\s*\([^)]*\$.*(eval|exec)/i,
+      /set_transient\s*\([^)]*https?:\/\//i,
+      /get_transient.*unserialize/i,
+    ];
+    for (const file of phpFiles) {
+      for (let i = 0; i < file.lines.length; i++) {
+        for (const p of pats) {
+          if (p.test(file.lines[i])) {
+            findings.push(f(file.relativePath, i + 1, 0, file.lines[i].trim().substring(0, 150), 'Transient injection', 'Suspicious data in transient option — potential injection vector.'));
+            break;
+          }
+        }
+      }
+    }
+    results.push({ checkId: 'DBDEEP-005', checkName: 'Transient Injection', category: 'database', severity: 'high', description: 'Detects suspicious patterns in WordPress transient options', findings });
+  }
+
   return results;
 }
 
@@ -2976,7 +4017,7 @@ export function runScan(targetPath: string, sourceType: 'path' | 'upload' = 'pat
   }
 
   const bySeverity: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-  const byCategory: Record<CheckCategory | string, number> = { obfuscation: 0, 'external-access': 0, security: 0, 'code-pattern': 0, 'file-analysis': 0, wordpress: 0, evasion: 0, 'supply-chain': 0, spam: 0, 'js-malware': 0, integrity: 0 };
+  const byCategory: Record<CheckCategory | string, number> = { obfuscation: 0, 'external-access': 0, security: 0, 'code-pattern': 0, 'file-analysis': 0, wordpress: 0, evasion: 0, 'supply-chain': 0, spam: 0, 'js-malware': 0, integrity: 0, plugin: 0, hardening: 0, database: 0 };
 
   for (const r of results) {
     bySeverity[r.severity] += r.findings.length;

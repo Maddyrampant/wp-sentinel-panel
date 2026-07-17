@@ -18,6 +18,8 @@ export interface AttackChainLink {
   file: string;
   line: number;
   description: string;
+  mitreId?: string;
+  mitreTactic?: string;
 }
 
 export interface AttackChain {
@@ -31,17 +33,17 @@ export interface AttackChain {
   recommendation: string;
 }
 
-const LINK_PATTERNS: Array<{ type: ChainLink; patterns: RegExp[]; severity: Finding['details'] extends string ? 'critical' | 'high' | 'medium' | 'low' : never }> = [
-  { type: 'external_payload_download', patterns: [/file_get_contents\s*\(\s*['"]https?:/i, /curl_exec/i, /wp_remote_(?:get|post)\s*\(/i, /fopen\s*\(\s*['"]https?:/i], severity: 'high' },
-  { type: 'payload_decode', patterns: [/base64_decode\s*\(/i, /gzinflate\s*\(/i, /gzuncompress\s*\(/i, /str_rot13\s*\(/i], severity: 'medium' },
-  { type: 'code_execution', patterns: [/\beval\s*\(/i, /\bexec\s*\(/i, /\bsystem\s*\(/i, /\bpassthru\s*\(/i, /\bshell_exec\s*\(/i, /\bproc_open\s*\(/i, /preg_replace\s*\(\s*['"]\/.*\/e/i], severity: 'critical' },
-  { type: 'webshell_drop', patterns: [/file_put_contents\s*\(/i, /\bfwrite\s*\(\s*\$/i, /\bmove_uploaded_file\s*\(/i], severity: 'critical' },
-  { type: 'privilege_escalation', patterns: [/wp_create_user\s*\(/i, /\$wpdb.*UPDATE.*user/i, /add_option\s*\(/i, /update_option\s*\(/i, /wp_update_user\s*\(/i], severity: 'high' },
-  { type: 'persistence', patterns: [/wp_schedule_event\s*\(/i, /\bcron\s*\(/i, /\bschedule.*cron/i], severity: 'high' },
-  { type: 'data_exfiltration', patterns: [/mail\s*\(\s*['"][^'"]*@[a-z]/i, /wp_mail\s*\(/i, /file_get_contents\s*\(\s*['"]php:\/\/input/i, /\bcurl_setopt.*CURLOPT_POST/i], severity: 'high' },
-  { type: 'obfuscation_layer', patterns: [/eval\s*\(\s*base64_decode/i, /\beval\s*\(\s*gz/i, /\beval\s*\(\s*str_rot13/i], severity: 'medium' },
-  { type: 'database_injection', patterns: [/\$wpdb\s*->\s*(?:query|get_results|get_var|get_row)\s*\(\s*['"].*\$/i, /SELECT.*\$_(?:GET|POST|REQUEST)/i], severity: 'critical' },
-  { type: 'file_inclusion', patterns: [/include\s*\(\s*\$/i, /require\s*\(\s*\$/i, /include_once\s*\(\s*\$/i, /require_once\s*\(\s*\$/i, /\bfile_get_contents\s*\(\s*\$_/i], severity: 'critical' },
+const LINK_PATTERNS: Array<{ type: ChainLink; patterns: RegExp[]; severity: Finding['details'] extends string ? 'critical' | 'high' | 'medium' | 'low' : never; mitreId: string; mitreTactic: string }> = [
+  { type: 'external_payload_download', patterns: [/file_get_contents\s*\(\s*['"]https?:/i, /curl_exec/i, /wp_remote_(?:get|post)\s*\(/i, /fopen\s*\(\s*['"]https?:/i], severity: 'high', mitreId: 'T1105', mitreTactic: 'Command and Control' },
+  { type: 'payload_decode', patterns: [/base64_decode\s*\(/i, /gzinflate\s*\(/i, /gzuncompress\s*\(/i, /str_rot13\s*\(/i], severity: 'medium', mitreId: 'T1027', mitreTactic: 'Defense Evasion' },
+  { type: 'code_execution', patterns: [/\beval\s*\(/i, /\bexec\s*\(/i, /\bsystem\s*\(/i, /\bpassthru\s*\(/i, /\bshell_exec\s*\(/i, /\bproc_open\s*\(/i, /preg_replace\s*\(\s*['"]\/.*\/e/i], severity: 'critical', mitreId: 'T1059', mitreTactic: 'Execution' },
+  { type: 'webshell_drop', patterns: [/file_put_contents\s*\(/i, /\bfwrite\s*\(\s*\$/i, /\bmove_uploaded_file\s*\(/i], severity: 'critical', mitreId: 'T1505.003', mitreTactic: 'Persistence' },
+  { type: 'privilege_escalation', patterns: [/wp_create_user\s*\(/i, /\$wpdb.*UPDATE.*user/i, /add_option\s*\(/i, /update_option\s*\(/i, /wp_update_user\s*\(/i], severity: 'high', mitreId: 'T1078', mitreTactic: 'Privilege Escalation' },
+  { type: 'persistence', patterns: [/wp_schedule_event\s*\(/i, /\bcron\s*\(/i, /\bschedule.*cron/i], severity: 'high', mitreId: 'T1053.005', mitreTactic: 'Persistence' },
+  { type: 'data_exfiltration', patterns: [/mail\s*\(\s*['"][^'"]*@[a-z]/i, /wp_mail\s*\(/i, /file_get_contents\s*\(\s*['"]php:\/\/input/i, /\bcurl_setopt.*CURLOPT_POST/i], severity: 'high', mitreId: 'T1041', mitreTactic: 'Exfiltration' },
+  { type: 'obfuscation_layer', patterns: [/eval\s*\(\s*base64_decode/i, /\beval\s*\(\s*gz/i, /\beval\s*\(\s*str_rot13/i], severity: 'medium', mitreId: 'T1027', mitreTactic: 'Defense Evasion' },
+  { type: 'database_injection', patterns: [/\$wpdb\s*->\s*(?:query|get_results|get_var|get_row)\s*\(\s*['"].*\$/i, /SELECT.*\$_(?:GET|POST|REQUEST)/i], severity: 'critical', mitreId: 'T1190', mitreTactic: 'Initial Access' },
+  { type: 'file_inclusion', patterns: [/include\s*\(\s*\$/i, /require\s*\(\s*\$/i, /include_once\s*\(\s*\$/i, /require_once\s*\(\s*\$/i, /\bfile_get_contents\s*\(\s*\$_/i], severity: 'critical', mitreId: 'T1190', mitreTactic: 'Initial Access' },
 ];
 
 function classifyFinding(finding: Finding): ChainLink[] {
@@ -163,12 +165,16 @@ export function detectAttackChains(findings: Finding[]): AttackChain[] {
       for (const item of group) {
         if (patternIdx >= pattern.links.length) break;
         if (item.links.includes(pattern.links[patternIdx])) {
+          const linkType = pattern.links[patternIdx];
+          const linkMeta = LINK_PATTERNS.find(lp => lp.type === linkType);
           chainLinks.push({
-            type: pattern.links[patternIdx],
+            type: linkType,
             finding: item.finding,
             file: item.finding.file,
             line: item.finding.line,
             description: item.finding.message,
+            mitreId: linkMeta?.mitreId,
+            mitreTactic: linkMeta?.mitreTactic,
           });
           patternIdx++;
         }
@@ -196,12 +202,15 @@ export function detectAttackChains(findings: Finding[]): AttackChain[] {
   for (const crossFile of classified) {
     for (const pattern of CHAIN_PATTERNS) {
       if (crossFile.links.includes(pattern.links[0])) {
+        const firstLinkMeta = LINK_PATTERNS.find(lp => lp.type === pattern.links[0]);
         const chainLinks: AttackChainLink[] = [{
           type: pattern.links[0],
           finding: crossFile.finding,
           file: crossFile.finding.file,
           line: crossFile.finding.line,
           description: crossFile.finding.message,
+          mitreId: firstLinkMeta?.mitreId,
+          mitreTactic: firstLinkMeta?.mitreTactic,
         }];
 
         const relatedFindings = classified.filter(
@@ -211,12 +220,15 @@ export function detectAttackChains(findings: Finding[]): AttackChain[] {
         for (const related of relatedFindings.slice(0, 3)) {
           for (const linkType of pattern.links) {
             if (related.links.includes(linkType) && !chainLinks.some(l => l.type === linkType)) {
+              const linkMeta = LINK_PATTERNS.find(lp => lp.type === linkType);
               chainLinks.push({
                 type: linkType,
                 finding: related.finding,
                 file: related.finding.file,
                 line: related.finding.line,
                 description: related.finding.message,
+                mitreId: linkMeta?.mitreId,
+                mitreTactic: linkMeta?.mitreTactic,
               });
               break;
             }
