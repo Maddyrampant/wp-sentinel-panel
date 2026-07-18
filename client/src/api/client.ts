@@ -11,9 +11,7 @@ export async function scanByPath(path: string): Promise<ScanSummary> {
 export async function uploadAndScan(file: File): Promise<ScanSummary> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await api.post('/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const { data } = await api.post('/upload', formData);
   return data;
 }
 
@@ -89,9 +87,7 @@ export async function uploadThemeScan(file: File, themeName?: string): Promise<T
   const formData = new FormData();
   formData.append('file', file);
   if (themeName) formData.append('themeName', themeName);
-  const { data } = await api.post('/theme-scan/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const { data } = await api.post('/theme-scan/upload', formData);
   return data;
 }
 
@@ -187,9 +183,7 @@ export async function pluginScan(pluginsPath: string, pluginName?: string): Prom
 export async function uploadPluginScan(file: File): Promise<any> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await api.post('/plugin-scan/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const { data } = await api.post('/plugin-scan/upload', formData);
   return data;
 }
 
@@ -207,9 +201,7 @@ export async function hardeningScan(targetPath: string): Promise<any> {
 export async function uploadHardeningScan(file: File): Promise<any> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await api.post('/hardening-scan/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const { data } = await api.post('/hardening-scan/upload', formData);
   return data;
 }
 
